@@ -32,7 +32,7 @@ class PartyService
     }
 
     /**
-     * @return array{party: Party, relationships: array<PartyRelationship>}
+     * @return array{party: Party, relationships: array<PartyRelationship>, relatedParties: array<string, Party>}
      */
     public function getPartyWithRelationships(PartyId $partyId): array
     {
@@ -43,9 +43,30 @@ class PartyService
 
         $relationships = $this->relationshipRepository->findByPartyId($partyId);
 
+        // Collect all related party IDs
+        $relatedPartyIds = [];
+        foreach ($relationships as $rel) {
+            if (!$rel->fromPartyId->equals($partyId)) {
+                $relatedPartyIds[] = $rel->fromPartyId;
+            }
+            if (!$rel->toPartyId->equals($partyId)) {
+                $relatedPartyIds[] = $rel->toPartyId;
+            }
+        }
+
+        // Fetch related parties
+        $relatedPartiesList = $this->partyRepository->findByIds($relatedPartyIds);
+        
+        // Key by ID for easy lookup
+        $relatedParties = [];
+        foreach ($relatedPartiesList as $p) {
+            $relatedParties[$p->id->value] = $p;
+        }
+
         return [
             'party' => $party,
             'relationships' => $relationships,
+            'relatedParties' => $relatedParties,
         ];
     }
 }

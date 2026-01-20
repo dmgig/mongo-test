@@ -55,4 +55,28 @@ class MongoPartyRepository implements PartyRepositoryInterface
             \DateTimeImmutable::createFromMutable($createdAt)
         );
     }
+
+    public function findByIds(array $ids): array
+    {
+        $collection = $this->db->selectCollection('submissions');
+        $stringIds = array_map(fn(PartyId $id) => $id->value, $ids);
+        
+        $cursor = $collection->find(['_id' => ['$in' => $stringIds]]);
+        
+        $parties = [];
+        foreach ($cursor as $data) {
+            /** @var \MongoDB\BSON\UTCDateTime $createdAtBson */
+            $createdAtBson = $data['created_at'];
+            $createdAt = $createdAtBson->toDateTime();
+            
+            $parties[] = new Party(
+                PartyId::fromString((string)$data['_id']),
+                $data['name'],
+                PartyType::from($data['type']),
+                \DateTimeImmutable::createFromMutable($createdAt)
+            );
+        }
+        
+        return $parties;
+    }
 }

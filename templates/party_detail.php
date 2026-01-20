@@ -31,9 +31,9 @@
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th>Relationship ID</th>
                         <th>Type</th>
-                        <th>With Party ID</th>
+                        <th>Related Party</th>
                         <th>Status</th>
                     </tr>
                 </thead>
@@ -43,14 +43,15 @@
                         // Determine the "other" party in the relationship
                         $isFrom = $rel->fromPartyId->equals($party->id);
                         $otherId = $isFrom ? $rel->toPartyId->value : $rel->fromPartyId->value;
-                        $role = $isFrom ? '-> (To)' : '<- (From)';
+                        
+                        // Look up name in relatedParties map
+                        $otherName = isset($relatedParties[$otherId]) ? $relatedParties[$otherId]->name : 'Unknown Party';
                     ?>
                     <tr>
                         <td><?= htmlspecialchars($rel->id->value) ?></td>
                         <td><?= htmlspecialchars($rel->type->value) ?></td>
                         <td>
-                            <?= htmlspecialchars($role) ?> 
-                            <a href="/party/detail?id=<?= urlencode($otherId) ?>"><?= htmlspecialchars($otherId) ?></a>
+                            <a href="/party/detail?id=<?= urlencode($otherId) ?>"><?= htmlspecialchars($otherName) ?></a>
                         </td>
                         <td><?= htmlspecialchars($rel->status->value) ?></td>
                     </tr>

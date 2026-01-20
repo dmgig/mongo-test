@@ -32,7 +32,7 @@ $app->get('/', function (Request $request, Response $response) {
     return $response;
 });
 
-// GET /party/detail - Show Party Details
+    // GET /party/detail - Show Party Details
 $app->get('/party/detail', function (Request $request, Response $response) {
     $idStr = $request->getQueryParams()['id'] ?? '';
     
@@ -52,6 +52,7 @@ $app->get('/party/detail', function (Request $request, Response $response) {
         // Extract variables for the template
         $party = $result['party'];
         $relationships = $result['relationships'];
+        $relatedParties = $result['relatedParties'];
 
         ob_start();
         require __DIR__ . '/../templates/party_detail.php';
@@ -143,8 +144,8 @@ $app->get('/party/relationship/create', function (Request $request, Response $re
 // POST /party/relationship/create - Handle Submission
 $app->post('/party/relationship/create', function (Request $request, Response $response) {
     $data = (array)$request->getParsedBody();
-    $fromId = $data['from_party_id'] ?? '';
-    $toId = $data['to_party_id'] ?? '';
+    $fromId = trim($data['from_party_id'] ?? '');
+    $toId = trim($data['to_party_id'] ?? '');
     $typeStr = $data['type'] ?? '';
     $statusStr = $data['status'] ?? '';
     $message = '';
