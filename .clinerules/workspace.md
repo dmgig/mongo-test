@@ -22,4 +22,4 @@ When running composer, we should run directly on the ddev machine.
 
 ## README
 
-Always update README/README.md with the latest updates of what we have done.
+Always update README.md with the latest updates of what we have done. Also, update README/API.md if any changes to the API are made.
