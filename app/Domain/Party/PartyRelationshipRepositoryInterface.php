@@ -18,4 +18,6 @@ interface PartyRelationshipRepositoryInterface
      * @return PartyRelationship[]
      */
     public function findByPartyId(PartyId $partyId): array;
+
+    public function findById(PartyRelationshipId $id): ?PartyRelationship;
 }

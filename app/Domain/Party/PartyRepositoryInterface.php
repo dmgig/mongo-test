@@ -14,4 +14,9 @@ interface PartyRepositoryInterface
      * @return Party[]
      */
     public function findByIds(array $ids): array;
+
+    /**
+     * @return Party[]
+     */
+    public function findAll(): array;
 }

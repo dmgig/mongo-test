@@ -54,6 +54,10 @@ To inspect the data directly in MongoDB (Mongo Express), run:
 ddev mongo-express
 ```
 
+### API Access
+
+The application exposes a JSON REST API at `/api/v1`. See [API Documentation](README/API.md) for details.
+
 ## Architecture
 
 The application follows a clean architecture separating the Web layer from the Domain layer.

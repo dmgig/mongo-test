@@ -72,4 +72,29 @@ class MongoPartyRelationshipRepository implements PartyRelationshipRepositoryInt
         
         return $relationships;
     }
+
+    public function findById(PartyRelationshipId $id): ?PartyRelationship
+    {
+        $collection = $this->db->selectCollection('relationships');
+        $data = $collection->findOne(['_id' => $id->value]);
+        
+        if (!$data) {
+            return null;
+        }
+
+        /** @var \MongoDB\BSON\UTCDateTime $createdAtBson */
+        $createdAtBson = $data['created_at'];
+        /** @var \MongoDB\BSON\UTCDateTime $updatedAtBson */
+        $updatedAtBson = $data['updated_at'];
+        
+        return new PartyRelationship(
+            PartyRelationshipId::fromString((string)$data['_id']),
+            PartyId::fromString($data['from_party_id']),
+            PartyId::fromString($data['to_party_id']),
+            PartyRelationshipType::from($data['type']),
+            PartyRelationshipStatus::from($data['status']),
+            \DateTimeImmutable::createFromMutable($createdAtBson->toDateTime()),
+            \DateTimeImmutable::createFromMutable($updatedAtBson->toDateTime())
+        );
+    }
 }
