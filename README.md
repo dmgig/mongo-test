@@ -1,6 +1,13 @@
 # Mongo Webform Project
 
-This project is a PHP application built with **Slim Framework** that demonstrates connecting to a MongoDB database using DDEV. It uses Domain-Driven Design (DDD) principles.
+This project is a PHP application built with **Slim Framework** that demonstrates connecting to a MongoDB database using DDEV. It implements **Domain-Driven Design (DDD)** principles to model Parties (People/Organizations) and their Relationships.
+
+## Tech Stack
+
+- **PHP**: 8.3
+- **Framework**: Slim 4
+- **Database**: MongoDB
+- **Environment**: DDEV (Docker)
 
 ## Prerequisites
 
@@ -23,31 +30,58 @@ This project is a PHP application built with **Slim Framework** that demonstrate
 
 ### Web Interface
 
-- **Home**: `/` - Links to available actions.
-- **Create Party**: `/party/create` - Create a new Person or Organization.
-- **Create Relationship**: `/party/relationship/create` - Link two parties (e.g., Employment).
-- **Connection Test**: Access `/mongo_test.php` to verify the database connection.
+The application provides a simple web interface to manage Parties and Relationships.
+
+1.  **Home** (`/`): Dashboard with links to all actions.
+2.  **List Parties** (`/parties`):
+    - View all registered parties with their Name and ID.
+3.  **Create Party** (`/party/create`): 
+    - Create a new **Individual** or **Organization**.
+    - Returns a unique Party ID (UUID).
+4.  **Create Relationship** (`/party/relationship/create`): 
+    - Connect two Parties using their IDs.
+    - Select relationship type (e.g., Employment, Membership).
+    - Set status (Active/Inactive).
+5.  **Delete Party** (`/party/delete`):
+    - Delete a Party by ID.
+    - **Warning**: Automatically deletes all associated relationships (Cascading Delete).
 
 ### Admin Panel
 
-To access the MongoDB Admin Panel (Mongo Express), run:
+To inspect the data directly in MongoDB (Mongo Express), run:
 
 ```bash
 ddev mongo-express
 ```
 
+## Architecture
+
+The application follows a clean architecture separating the Web layer from the Domain layer.
+
+### 1. Web Layer (Slim Framework)
+- **Entry Point**: `www/index.php` handles all routing and HTTP requests.
+- **Templates**: `templates/` contains plain PHP view files, keeping HTML separate from logic.
+
+### 2. Domain Layer (DDD)
+Located in `app/Domain/`, this layer contains the business logic, independent of the framework.
+
+- **Party Domain**:
+    - `Party`: The main Aggregate Root entity (Person or Organization).
+    - `PartyRelationship`: Entity representing a link between two parties (e.g., "Works For").
+    - **Value Objects**:
+        - `PartyId`, `PartyRelationshipId`: Type-safe UUIDs.
+        - `PartyType`, `PartyRelationshipType`: Enums for valid types.
+
+### 3. Infrastructure Layer
+- `MongoConnector`: Handles the connection to the MongoDB database using DDEV credentials.
+
 ## File Structure
 
-- **app/**: Application code.
-  - **Domain/**: Contains business logic and entities.
-    - `Party/`: The Party domain.
-      - `Party.php`: The main entity.
-      - `PartyRelationship.php`: Manages links between parties.
-  - **Infrastructure/**: Infrastructure concerns.
-    - `Mongo/MongoConnector.php`: Handles MongoDB connection logic.
-- **www/**: Public-facing PHP scripts.
-  - `index.php`: The main application entry point (Slim Framework).
-  - `mongo_test.php`: Simple script to test MongoDB connectivity.
-- **templates/**: HTML templates for the forms.
-- **settings.php**: Global settings and autoloader inclusion.
-- **composer.json**: Project dependencies and autoloader configuration.
+- **app/**: Application source code.
+  - **Domain/**: Business logic and entities.
+  - **Infrastructure/**: Database connections.
+- **www/**: Public web root.
+  - `index.php`: Main application entry point.
+- **templates/**: HTML views.
+- **settings.php**: Configuration.
+- **composer.json**: Dependencies.

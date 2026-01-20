@@ -8,7 +8,10 @@ use App\Domain\Party\PartyRelationship;
 use App\Domain\Party\PartyRelationshipType;
 use App\Domain\Party\PartyRelationshipStatus;
 use App\Domain\Party\PartyId;
+use App\Domain\Party\PartyService;
 use App\Infrastructure\Mongo\MongoConnector;
+use App\Infrastructure\Mongo\MongoPartyRepository;
+use App\Infrastructure\Mongo\MongoPartyRelationshipRepository;
 
 require_once dirname(__DIR__) . '/settings.php';
 
@@ -20,9 +23,35 @@ $app->addErrorMiddleware(true, true, true);
 // Home - Links to create pages
 $app->get('/', function (Request $request, Response $response) {
     $html = '<h1>Home</h1><ul>
+    <li><a href="/parties">List Parties</a></li>
     <li><a href="/party/create">Create Party</a></li>
     <li><a href="/party/relationship/create">Create Relationship</a></li>
+    <li><a href="/party/delete" style="color: red;">Delete Party</a></li>
     </ul>';
+    $response->getBody()->write($html);
+    return $response;
+});
+
+// GET /parties - List Parties
+$app->get('/parties', function (Request $request, Response $response) {
+    try {
+        $connector = MongoConnector::fromEnvironment();
+        $db = $connector->database();
+        $collection = $db->selectCollection('submissions');
+        // Fetch parties, sorted by newest first
+        $cursor = $collection->find([], [
+            'limit' => 100,
+            'sort' => ['created_at' => -1]
+        ]);
+        $parties = $cursor->toArray();
+    } catch (\Exception $e) {
+        $parties = [];
+        // Ideally log this error
+    }
+
+    ob_start();
+    require __DIR__ . '/../templates/party_list.php';
+    $html = ob_get_clean();
     $response->getBody()->write($html);
     return $response;
 });
@@ -116,6 +145,46 @@ $app->post('/party/relationship/create', function (Request $request, Response $r
     // Render form again with message
     ob_start();
     require __DIR__ . '/../templates/relationship_create.php';
+    $html = ob_get_clean();
+    $response->getBody()->write($html);
+    return $response;
+});
+
+// GET /party/delete - Show Form
+$app->get('/party/delete', function (Request $request, Response $response) {
+    $id = $request->getQueryParams()['id'] ?? '';
+    ob_start();
+    require __DIR__ . '/../templates/party_delete.php';
+    $html = ob_get_clean();
+    $response->getBody()->write($html);
+    return $response;
+});
+
+// POST /party/delete - Handle Submission
+$app->post('/party/delete', function (Request $request, Response $response) {
+    $data = (array)$request->getParsedBody();
+    $idStr = $data['id'] ?? '';
+    $message = '';
+
+    if ($idStr) {
+        try {
+            $connector = MongoConnector::fromEnvironment();
+            // Wiring up the dependencies manually
+            $partyRepo = new MongoPartyRepository($connector);
+            $relRepo = new MongoPartyRelationshipRepository($connector);
+            $service = new PartyService($partyRepo, $relRepo);
+
+            $service->deleteParty(PartyId::fromString($idStr));
+            $message = "Party and its relationships deleted successfully.";
+        } catch (\Exception $e) {
+            $message = "Error: " . $e->getMessage();
+        }
+    } else {
+        $message = "ID is required.";
+    }
+
+    ob_start();
+    require __DIR__ . '/../templates/party_delete.php';
     $html = ob_get_clean();
     $response->getBody()->write($html);
     return $response;
