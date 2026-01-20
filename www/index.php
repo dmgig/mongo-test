@@ -32,6 +32,39 @@ $app->get('/', function (Request $request, Response $response) {
     return $response;
 });
 
+// GET /party/detail - Show Party Details
+$app->get('/party/detail', function (Request $request, Response $response) {
+    $idStr = $request->getQueryParams()['id'] ?? '';
+    
+    if (!$idStr) {
+        $response->getBody()->write("Party ID is required.");
+        return $response->withStatus(400);
+    }
+
+    try {
+        $connector = MongoConnector::fromEnvironment();
+        $partyRepo = new MongoPartyRepository($connector);
+        $relRepo = new MongoPartyRelationshipRepository($connector);
+        $service = new PartyService($partyRepo, $relRepo);
+
+        $result = $service->getPartyWithRelationships(PartyId::fromString($idStr));
+        
+        // Extract variables for the template
+        $party = $result['party'];
+        $relationships = $result['relationships'];
+
+        ob_start();
+        require __DIR__ . '/../templates/party_detail.php';
+        $html = ob_get_clean();
+        $response->getBody()->write($html);
+        return $response;
+
+    } catch (\Exception $e) {
+        $response->getBody()->write("Error: " . htmlspecialchars($e->getMessage()));
+        return $response->withStatus(404);
+    }
+});
+
 // GET /parties - List Parties
 $app->get('/parties', function (Request $request, Response $response) {
     try {

@@ -30,4 +30,22 @@ class PartyService
         // 2. Delete the party itself
         $this->partyRepository->delete($partyId);
     }
+
+    /**
+     * @return array{party: Party, relationships: array<PartyRelationship>}
+     */
+    public function getPartyWithRelationships(PartyId $partyId): array
+    {
+        $party = $this->partyRepository->findById($partyId);
+        if (!$party) {
+            throw new \Exception("Party with ID {$partyId} not found.");
+        }
+
+        $relationships = $this->relationshipRepository->findByPartyId($partyId);
+
+        return [
+            'party' => $party,
+            'relationships' => $relationships,
+        ];
+    }
 }
