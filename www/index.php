@@ -32,9 +32,9 @@ $app->get('/', function (Request $request, Response $response) {
     return $response;
 });
 
-    // GET /party/detail - Show Party Details
-$app->get('/party/detail', function (Request $request, Response $response) {
-    $idStr = $request->getQueryParams()['id'] ?? '';
+    // GET /party/detail/{id} - Show Party Details
+$app->get('/party/detail/{id}', function (Request $request, Response $response, array $args) {
+    $idStr = $args['id'] ?? '';
     
     if (!$idStr) {
         $response->getBody()->write("Party ID is required.");
@@ -184,9 +184,9 @@ $app->post('/party/relationship/create', function (Request $request, Response $r
     return $response;
 });
 
-// GET /party/delete - Show Form
-$app->get('/party/delete', function (Request $request, Response $response) {
-    $id = $request->getQueryParams()['id'] ?? '';
+// GET /party/delete/{id} - Show Form
+$app->get('/party/delete/{id}', function (Request $request, Response $response, array $args) {
+    $id = $args['id'] ?? '';
     ob_start();
     require __DIR__ . '/../templates/party_delete.php';
     $html = ob_get_clean();
@@ -194,10 +194,10 @@ $app->get('/party/delete', function (Request $request, Response $response) {
     return $response;
 });
 
-// POST /party/delete - Handle Submission
-$app->post('/party/delete', function (Request $request, Response $response) {
-    $data = (array)$request->getParsedBody();
-    $idStr = $data['id'] ?? '';
+// POST /party/delete/{id} - Handle Submission
+$app->post('/party/delete/{id}', function (Request $request, Response $response, array $args) {
+    // ID comes from the URL path now, not just the body
+    $idStr = $args['id'] ?? '';
     $message = '';
 
     if ($idStr) {
@@ -217,6 +217,8 @@ $app->post('/party/delete', function (Request $request, Response $response) {
         $message = "ID is required.";
     }
 
+    // For the template to render correctly if we re-display it
+    $id = $idStr;
     ob_start();
     require __DIR__ . '/../templates/party_delete.php';
     $html = ob_get_clean();

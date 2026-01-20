@@ -18,7 +18,7 @@
         </div>
     <?php endif; ?>
 
-    <form method="post" action="/party/delete" onsubmit="return confirm('Are you sure you want to delete this party and all its relationships?');">
+    <form method="post" action="/party/delete/<?= htmlspecialchars($id ?? '') ?>" onsubmit="return confirm('Are you sure you want to delete this party and all its relationships?');">
       <div>
         <label for="id">Party ID</label><br />
         <input id="id" name="id" type="text" required placeholder="e.g. 550e8400-e29b-..." style="width: 300px;" value="<?= htmlspecialchars($id ?? '') ?>" />

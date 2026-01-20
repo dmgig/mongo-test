@@ -28,10 +28,10 @@
             <tbody>
                 <?php foreach ($parties as $party): ?>
                 <tr>
-                    <td><a href="/party/detail?id=<?= urlencode($party['_id'] ?? '') ?>"><?= htmlspecialchars($party['name'] ?? '') ?></a></td>
+                    <td><a href="/party/detail/<?= urlencode($party['_id'] ?? '') ?>"><?= htmlspecialchars($party['name'] ?? '') ?></a></td>
                     <td><?= htmlspecialchars($party['_id'] ?? '') ?></td>
                     <td><?= htmlspecialchars($party['type'] ?? '') ?></td>
-                    <td><a href="/party/delete?id=<?= urlencode($party['_id'] ?? '') ?>" style="color: red;">Delete</a></td>
+                    <td><a href="/party/delete/<?= urlencode($party['_id'] ?? '') ?>" style="color: red;">Delete</a></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>

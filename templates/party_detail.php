@@ -51,7 +51,7 @@
                         <td><?= htmlspecialchars($rel->id->value) ?></td>
                         <td><?= htmlspecialchars($rel->type->value) ?></td>
                         <td>
-                            <a href="/party/detail?id=<?= urlencode($otherId) ?>"><?= htmlspecialchars($otherName) ?></a>
+                            <a href="/party/detail/<?= urlencode($otherId) ?>"><?= htmlspecialchars($otherName) ?></a>
                         </td>
                         <td><?= htmlspecialchars($rel->status->value) ?></td>
                     </tr>
@@ -64,7 +64,7 @@
     <p>
         <a href="/">Back to Home</a> | 
         <a href="/parties">List Parties</a> | 
-        <a href="/party/delete?id=<?= urlencode($party->id->value) ?>" style="color: red;">Delete this Party</a>
+        <a href="/party/delete/<?= urlencode($party->id->value) ?>" style="color: red;">Delete this Party</a>
     </p>
   </body>
 </html>
