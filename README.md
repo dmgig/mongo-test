@@ -1,6 +1,6 @@
 # Mongo Webform Project
 
-This project is a simple PHP application that demonstrates connecting to a MongoDB database using DDEV. It includes a web form that captures user input and saves it to a MongoDB collection.
+This project is a PHP application built with **Slim Framework** that demonstrates connecting to a MongoDB database using DDEV. It uses Domain-Driven Design (DDD) principles.
 
 ## Prerequisites
 
@@ -23,8 +23,9 @@ This project is a simple PHP application that demonstrates connecting to a Mongo
 
 ### Web Interface
 
-- **Form Submission**: Navigate to `/index.php` (e.g., `https://unknown.ddev.site/index.php`). This page presents a form to enter a Name and Type.
-- **Results**: Submitting the form posts data to `results.php`, which inserts the record into the MongoDB `submissions` collection and displays the result.
+- **Home**: `/` - Links to available actions.
+- **Create Party**: `/party/create` - Create a new Person or Organization.
+- **Create Relationship**: `/party/relationship/create` - Link two parties (e.g., Employment).
 - **Connection Test**: Access `/mongo_test.php` to verify the database connection.
 
 ### Admin Panel
@@ -45,8 +46,8 @@ ddev mongo-express
   - **Infrastructure/**: Infrastructure concerns.
     - `Mongo/MongoConnector.php`: Handles MongoDB connection logic.
 - **www/**: Public-facing PHP scripts.
-  - `index.php`: The input form.
-  - `results.php`: Processes form submissions and saves to MongoDB.
+  - `index.php`: The main application entry point (Slim Framework).
   - `mongo_test.php`: Simple script to test MongoDB connectivity.
+- **templates/**: HTML templates for the forms.
 - **settings.php**: Global settings and autoloader inclusion.
 - **composer.json**: Project dependencies and autoloader configuration.
