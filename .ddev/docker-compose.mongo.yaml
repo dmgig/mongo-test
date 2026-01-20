@@ -1,0 +1,58 @@
+#ddev-generated
+services:
+  mongo:
+    container_name: ddev-${DDEV_SITENAME}-mongo
+    image: ${MONGO_DOCKER_IMAGE:-mongo:5-focal}
+    volumes:
+      - type: "volume"
+        source: mongo
+        target: "/data/db"
+        volume:
+          nocopy: true
+      - type: "volume"
+        source: mongo-config
+        target: "/data/configdb"
+        volume:
+          nocopy: true
+      - ".:/mnt/ddev_config"
+      - "ddev-global-cache:/mnt/ddev-global-cache"
+    restart: "no"
+    expose:
+      - "27017"
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=db
+      - MONGO_INITDB_ROOT_PASSWORD=db
+      # See https://github.com/docker-library/docs/tree/master/mongo#mongo_initdb_database
+      # - MONGO_INITDB_DATABASE=db
+    healthcheck:
+      test: ["CMD-SHELL", "mongo --eval 'db.runCommand(\"ping\").ok' localhost:27017/test --quiet"]
+      timeout: 60s
+
+  mongo-express:
+    container_name: ddev-${DDEV_SITENAME}-mongo-express
+    image: ${MONGO_EXPRESS_DOCKER_IMAGE:-mongo-express:1.0}
+    restart: "no"
+    labels:
+      com.ddev.site-name: ${DDEV_SITENAME}
+      com.ddev.approot: ${DDEV_APPROOT}
+    expose:
+      - "8081"
+    environment:
+      - ME_CONFIG_MONGODB_ENABLE_ADMIN=true
+      - ME_CONFIG_BASICAUTH=false
+      - ME_CONFIG_MONGODB_URL=mongodb://db:db@mongo:27017
+      - VIRTUAL_HOST=$DDEV_HOSTNAME
+      - HTTP_EXPOSE=9091:8081
+      - HTTPS_EXPOSE=9092:8081
+    depends_on:
+      mongo:
+        condition: service_healthy
+    profiles:
+      - mongo-express
+
+volumes:
+  mongo:
+  mongo-config:
