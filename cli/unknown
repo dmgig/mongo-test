@@ -3,7 +3,7 @@
 
 require __DIR__ . '/../vendor/autoload.php';
 
-use App\Console\Commands\CreateSourceCommand;
+use Cli\Commands\CreateSourceCommand;
 use App\Domain\Source\SourceService;
 use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoSourceRepository;

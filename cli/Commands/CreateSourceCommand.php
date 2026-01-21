@@ -24,6 +24,7 @@ class CreateSourceCommand extends Command
     protected function configure(): void
     {
         $this
+            ->setName('sources:create')
             ->setDescription('Creates a new source by fetching content from a URL.')
             ->setHelp('This command allows you to create a source...')
             ->addArgument('url', InputArgument::REQUIRED, 'The URL of the source');
