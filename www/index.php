@@ -10,9 +10,13 @@ use App\Domain\Party\PartyRelationshipStatus;
 use App\Domain\Party\PartyId;
 use App\Domain\Party\PartyService;
 use App\Domain\Party\PartyRelationshipId;
+use App\Domain\Source\SourceService;
+use App\Domain\Source\SourceId;
+use App\Domain\Source\Source;
 use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoPartyRepository;
 use App\Infrastructure\Mongo\MongoPartyRelationshipRepository;
+use App\Infrastructure\Mongo\MongoSourceRepository;
 
 require_once dirname(__DIR__) . '/settings.php';
 
@@ -234,6 +238,88 @@ $app->post('/party/delete/{id}', function (Request $request, Response $response,
 
 $app->group('/api/v1', function ($group) {
     
+    // SOURCES
+
+    // GET /api/v1/sources - List all sources
+    $group->get('/sources', function (Request $request, Response $response) {
+        $connector = MongoConnector::fromEnvironment();
+        $sourceRepo = new MongoSourceRepository($connector);
+        
+        $sources = $sourceRepo->findAll();
+        
+        $data = array_map(fn(Source $s) => $s->toArray(), $sources);
+
+        $response->getBody()->write(json_encode($data));
+        return $response->withHeader('Content-Type', 'application/json');
+    });
+
+    // POST /api/v1/sources - Create source
+    $group->post('/sources', function (Request $request, Response $response) {
+        $data = (array)$request->getParsedBody();
+        $url = $data['url'] ?? '';
+
+        if (!$url || !filter_var($url, FILTER_VALIDATE_URL)) {
+            $response->getBody()->write(json_encode(['error' => 'Valid URL is required']));
+            return $response->withStatus(400)->withHeader('Content-Type', 'application/json');
+        }
+
+        try {
+            $connector = MongoConnector::fromEnvironment();
+            $sourceRepo = new MongoSourceRepository($connector);
+            $service = new SourceService($sourceRepo);
+
+            $source = $service->createSource($url);
+
+            $response->getBody()->write(json_encode([
+                'id' => $source->id->value,
+                'status' => 'created',
+                'http_code' => $source->httpCode
+            ]));
+            return $response->withStatus(201)->withHeader('Content-Type', 'application/json');
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode(['error' => $e->getMessage()]));
+            return $response->withStatus(500)->withHeader('Content-Type', 'application/json');
+        }
+    });
+
+    // GET /api/v1/sources/{id} - Get source details
+    $group->get('/sources/{id}', function (Request $request, Response $response, array $args) {
+        $idStr = $args['id'];
+        
+        try {
+            $connector = MongoConnector::fromEnvironment();
+            $sourceRepo = new MongoSourceRepository($connector);
+            $service = new SourceService($sourceRepo);
+
+            $source = $service->getSource(SourceId::fromString($idStr));
+            
+            $response->getBody()->write(json_encode($source->toArray()));
+            return $response->withHeader('Content-Type', 'application/json');
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode(['error' => $e->getMessage()]));
+            return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
+        }
+    });
+
+    // DELETE /api/v1/sources/{id} - Delete source
+    $group->delete('/sources/{id}', function (Request $request, Response $response, array $args) {
+        $idStr = $args['id'];
+        
+        try {
+            $connector = MongoConnector::fromEnvironment();
+            $sourceRepo = new MongoSourceRepository($connector);
+            $service = new SourceService($sourceRepo);
+
+            $service->deleteSource(SourceId::fromString($idStr));
+
+            $response->getBody()->write(json_encode(['status' => 'deleted']));
+            return $response->withHeader('Content-Type', 'application/json');
+        } catch (\Exception $e) {
+            $response->getBody()->write(json_encode(['error' => $e->getMessage()]));
+            return $response->withStatus(404)->withHeader('Content-Type', 'application/json');
+        }
+    });
+
     // PARTIES
 
     // GET /api/v1/parties - List all parties
