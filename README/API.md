@@ -1,133 +1,67 @@
-# API Documentation
 
-The project includes a RESTful API to manage Parties and Relationships programmatically.
+---
 
-**Base URL**: `/api/v1`
+## Sources
 
-## Parties
+### List All Sources
+Retrieves a list of all stored sources (fetched web pages).
 
-### List All Parties
-Retrieves a list of all registered parties.
-
-- **Endpoint**: `GET /parties`
+- **Endpoint**: `GET /sources`
 - **Response**: `200 OK`
   ```json
   [
     {
       "_id": "uuid-string",
-      "name": "Party Name",
-      "type": "individual",
-      "created_at": { ... }
+      "url": "https://...",
+      "content": "<html>...",
+      "http_code": 200,
+      "accessed_at": { ... }
     },
     ...
   ]
   ```
 
-### Get Party Details
-Retrieves details for a specific party, including their relationships.
+### Get Source Details
+Retrieves details for a specific source.
 
-- **Endpoint**: `GET /parties/{id}`
+- **Endpoint**: `GET /sources/{id}`
 - **Response**: `200 OK`
   ```json
   {
-    "party": { ... },
-    "relationships": [
-      {
-        "_id": "...",
-        "from_party_id": "...",
-        "to_party_id": "...",
-        "type": "employment",
-        "status": "active"
-      }
-    ]
+    "_id": "...",
+    "url": "...",
+    "content": "...",
+    "http_code": 200,
+    "accessed_at": { ... }
   }
   ```
 
-### Create Party
-Creates a new individual or organization.
+### Create Source
+Fetches content from a URL and stores it as a new source.
 
-- **Endpoint**: `POST /parties`
+- **Endpoint**: `POST /sources`
 - **Body**:
   ```json
   {
-    "name": "John Doe",
-    "type": "individual"  // or "organization"
+    "url": "https://example.com"
   }
   ```
 - **Response**: `201 Created`
   ```json
   {
-    "id": "new-uuid-string",
-    "status": "created"
+    "id": "new-source-uuid",
+    "status": "created",
+    "http_code": 200
   }
   ```
 
-### Update Party
-Updates an existing party's information.
+### Delete Source
+Deletes a source.
 
-- **Endpoint**: `PATCH /parties/{id}`
-- **Body**:
-  ```json
-  {
-    "name": "New Name"
-  }
-  ```
-- **Response**: `200 OK`
-  ```json
-  {
-    "status": "updated"
-  }
-  ```
-
-### Delete Party
-Deletes a party. **Warning**: This cascades and deletes all relationships associated with the party.
-
-- **Endpoint**: `DELETE /parties/{id}`
+- **Endpoint**: `DELETE /sources/{id}`
 - **Response**: `200 OK`
   ```json
   {
     "status": "deleted"
-  }
-  ```
-
----
-
-## Party Relationships
-
-### Create Relationship
-Links two existing parties together.
-
-- **Endpoint**: `POST /party-relationships`
-- **Body**:
-  ```json
-  {
-    "from_party_id": "uuid-1",
-    "to_party_id": "uuid-2",
-    "type": "employment", // "employment", "membership", "association"
-    "status": "active"    // "active", "inactive" (optional, default: active)
-  }
-  ```
-- **Response**: `201 Created`
-  ```json
-  {
-    "id": "new-rel-uuid",
-    "status": "created"
-  }
-  ```
-
-### Update Relationship
-Updates the status of a relationship.
-
-- **Endpoint**: `PATCH /party-relationships/{id}`
-- **Body**:
-  ```json
-  {
-    "status": "inactive"
-  }
-  ```
-- **Response**: `200 OK`
-  ```json
-  {
-    "status": "updated"
   }
   ```

@@ -1,0 +1,22 @@
+#!/usr/bin/env php
+<?php
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use App\Console\Commands\CreateSourceCommand;
+use App\Domain\Source\SourceService;
+use App\Infrastructure\Mongo\MongoConnector;
+use App\Infrastructure\Mongo\MongoSourceRepository;
+use Symfony\Component\Console\Application;
+
+$application = new Application();
+
+// Manual Dependency Injection
+$connector = MongoConnector::fromEnvironment();
+$sourceRepo = new MongoSourceRepository($connector);
+$sourceService = new SourceService($sourceRepo);
+
+// Register Commands
+$application->add(new CreateSourceCommand($sourceService));
+
+$application->run();

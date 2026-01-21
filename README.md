@@ -58,6 +58,15 @@ ddev mongo-express
 
 The application exposes a JSON REST API at `/api/v1`. See [API Documentation](README/API.md) for details.
 
+### CLI Tool
+
+A Command Line Interface tool is available for managing the application.
+
+- **Create Source**: Fetch and store a web page as a source.
+  ```bash
+  cli/unknown sources:create https://example.com
+  ```
+
 ## Architecture
 
 The application follows a clean architecture separating the Web layer from the Domain layer.
@@ -76,6 +85,14 @@ Located in `app/Domain/`, this layer contains the business logic, independent of
         - `PartyId`, `PartyRelationshipId`: Type-safe UUIDs.
         - `PartyType`, `PartyRelationshipType`: Enums for valid types.
 
+- **Source Domain**:
+    - `Source`: Entity representing external content (e.g., a web page) fetched and stored for analysis.
+    - `SourceService`: Handles fetching content via HTTP (Guzzle) and persistence.
+
+- **AI Domain**:
+    - `AiModelInterface`: Abstraction for AI interactions.
+    - `GeminiAdapter`: Implementation for Google Gemini.
+
 ### 3. Infrastructure Layer
 - `MongoConnector`: Handles the connection to the MongoDB database using DDEV credentials.
 
@@ -86,6 +103,9 @@ Located in `app/Domain/`, this layer contains the business logic, independent of
   - **Infrastructure/**: Database connections.
 - **www/**: Public web root.
   - `index.php`: Main application entry point.
+- **cli/**: Command Line Interface.
+  - `unknown`: CLI entry point.
+  - `Commands/`: Console command classes.
 - **templates/**: HTML views.
 - **settings.php**: Configuration.
 - **composer.json**: Dependencies.
