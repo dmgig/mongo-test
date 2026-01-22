@@ -15,23 +15,16 @@ class GeminiAdapter implements AiModelInterface
 {
     public function __construct(
         private readonly Client $client,
-        private readonly string $modelName = 'gemini-pro'
+        private readonly ?string $modelName = null
     ) {
     }
 
     public function generate(Prompt $prompt): string
     {
-        // Construct the prompt with system instruction if possible, or concatenated
-        // Gemini Pro supports system instructions in newer versions, but simple concatenation 
-        // is robust for basic use cases.
-        // We will send the system prompt as the first message from 'user' or just combine them.
+        $model = $this->modelName ?? $_ENV['GEMINI_MODEL'] ?? getenv('GEMINI_MODEL') ?? 'gemini-2.5-pro';
         
-        // Strategy: Combine System + User input into a single prompt for simplicity/compatibility
-        // or leverage the chat history structure. Let's start with a direct generateContent call.
-        
-        $fullPrompt = (string) $prompt;
-
-        $response = $this->client->geminiPro()->generateContent($fullPrompt);
+        // Use the configured model
+        $response = $this->client->generativeModel($model)->generateContent((string) $prompt);
 
         return $response->text();
     }

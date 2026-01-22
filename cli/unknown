@@ -4,10 +4,21 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 use Cli\Commands\CreateSourceCommand;
+use Cli\Commands\ExtractContentCommand;
+use Cli\Commands\ListAiModelsCommand;
 use App\Domain\Source\SourceService;
+use App\Domain\Content\AiContentExtractor;
+use App\Domain\Content\ReadabilityContentExtractor;
 use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoSourceRepository;
+use App\Infrastructure\Html\HtmlStructureService;
+use App\Infrastructure\Ai\Gemini\GeminiAdapter;
 use Symfony\Component\Console\Application;
+use Dotenv\Dotenv;
+
+// Load Environment Variables
+$dotenv = Dotenv::createImmutable(__DIR__ . '/..');
+$dotenv->load();
 
 $application = new Application();
 
@@ -16,7 +27,28 @@ $connector = MongoConnector::fromEnvironment();
 $sourceRepo = new MongoSourceRepository($connector);
 $sourceService = new SourceService($sourceRepo);
 
+// AI Setup
+$apiKey = $_ENV['GEMINI_API_KEY'] ?? getenv('GEMINI_API_KEY');
+if (!$apiKey) {
+    echo "Warning: GEMINI_API_KEY not set in " . __DIR__ . "/../.env\n";
+    $apiKey = 'dummy';
+}
+$geminiClient = Gemini::client($apiKey);
+$aiAdapter = new GeminiAdapter($geminiClient);
+
+// Extraction Services
+$htmlStructureService = new HtmlStructureService();
+$aiExtractor = new AiContentExtractor($htmlStructureService, $aiAdapter);
+$readabilityExtractor = new ReadabilityContentExtractor();
+
+$extractors = [
+    'ai' => $aiExtractor,
+    'readability' => $readabilityExtractor,
+];
+
 // Register Commands
 $application->add(new CreateSourceCommand($sourceService));
+$application->add(new ExtractContentCommand($sourceService, $extractors));
+$application->add(new ListAiModelsCommand($geminiClient));
 
 $application->run();
