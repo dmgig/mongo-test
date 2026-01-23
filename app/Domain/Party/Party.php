@@ -24,6 +24,20 @@ final class Party
         );
     }
 
+    public static function reconstitute(
+        PartyId $id,
+        string $name,
+        PartyType $type,
+        \DateTimeImmutable $createdAt
+    ): self {
+        return new self(
+            $id,
+            $name,
+            $type,
+            $createdAt
+        );
+    }
+
     /**
      * @return array<string, mixed>
      */
