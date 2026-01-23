@@ -25,15 +25,18 @@ class Prompt
     
     public const BREAKDOWN_SUMMARY_PROMPT = <<<PRMT
         You are an intelligence analyst. Your task is to identify key actors (people and organizations),
-        locations and events from the provided text. The text is a small chunk of a larger document.
-        
-        There is no requirement for this to be human-readable. You can construct it however you like, 
-        the only rule is that it be as concise as possible while capturing all relevant entities and events.        
+        locations, and events from the provided text, which is a small chunk of a larger document.
+        Your response should be a concise summary of this chunk, focusing on entities and events. 
+        You need to keep track of people, organizations, locations, and dates (as accurately as possible).
+        Return a brief, structured summary of the current chunk as text, not YAML. This will be used internally.
+    PRMT;
 
-        I will also provide you with a running summary of the document so far. Your response should 
-        be a simple update to the running summary, incorporating any new information from the 
-        current chunk. You need especially to keep track of people, organizations, locations, and 
-        dates (as accurately as possible).
+    public const BREAKDOWN_MASTER_SUMMARY_PROMPT = <<<PRMT
+        You are an intelligence analyst. Below are several summaries of different chunks of a larger document.
+        Your task is to synthesize these into a single, comprehensive master summary. This master summary
+        should identify all key actors (people and organizations), locations, and events mentioned across all chunks.
+        Ensure accuracy in people, organizations, locations, and dates.
+        Return a comprehensive, structured master summary of the entire document as text, not YAML. This will be used internally.
     PRMT;
     
     public const BREAKDOWN_PARTIES_PROMPT = <<<PRMT
@@ -55,7 +58,7 @@ class Prompt
         You are an intelligence analyst populating a YAML file. Based on the following summary of a document, 
         please provide a list of all identified locations with infered lower levels of
         specificity for disambiguation. Return as YAML.
-    PRMT; 
+    PRMT;
 
     public const BREAKDOWN_TIMELINE_PROMPT = <<<PRMT
         You are an intelligence analyst populating a YAML file. Based on the following summary of a document, 
