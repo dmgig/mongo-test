@@ -47,6 +47,8 @@ class SourceBreakdownCommand extends Command
         $id = $input->getArgument('id');
         $retry = (bool)$input->getOption('retry');
         $sourceId = SourceId::fromString($id);
+        $verbose = $output->isVerbose();
+        $veryVerbose = $output->isVeryVerbose();
 
         try {
             // 1. Fetch Source and Extract Content
@@ -70,6 +72,12 @@ class SourceBreakdownCommand extends Command
             $output->writeln("Processing " . count($chunks) . " chunks...");
             foreach ($chunks as $i => $chunk) {
                 $output->write("  - Processing chunk " . ($i + 1) . "... ");
+                if ($verbose) {
+                     $output->writeln("");
+                     $output->writeln("    Chunk Length: " . strlen($chunk) . " chars");
+                     $output->writeln("    Preview: " . substr($chunk, 0, 100) . "...");
+                }
+                
                 $startTime = microtime(true);
 
                 $prompt = new Prompt(
@@ -79,12 +87,25 @@ class SourceBreakdownCommand extends Command
                     $retry
                 );
 
+                if ($veryVerbose) {
+                     $output->writeln("    Prompt: " . (string)$prompt);
+                }
+
                 try {
-                    $updatedSummary = $this->ai->generate($prompt);
+                    $response = $this->ai->generate($prompt);
+                    $updatedSummary = $response->text;
+                    
                     $breakdown->updateSummary($updatedSummary);
                     $this->breakdownRepo->save($breakdown);
                     $duration = microtime(true) - $startTime;
                     $output->writeln(sprintf("Done (%.2fs)", $duration));
+                    
+                    if ($verbose) {
+                        $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+                    }
+                    if ($veryVerbose) {
+                        $output->writeln("    Response: " . $updatedSummary);
+                    }
                 } catch (AiException $e) {
                     $output->writeln("<error>Failed: {$e->getMessage()}</error>");
                     if (!$retry) {
@@ -105,9 +126,14 @@ class SourceBreakdownCommand extends Command
                 null,
                 $retry
             );
-            $partiesResult = $this->ai->generate($partiesPrompt);
+            $partiesResponse = $this->ai->generate($partiesPrompt);
+            $partiesResult = $partiesResponse->text;
             $duration = microtime(true) - $startTime;
             $output->writeln(sprintf("Done (%.2fs)", $duration));
+            if ($verbose) {
+                 $output->writeln("    Tokens: {$partiesResponse->inputTokens} in / {$partiesResponse->outputTokens} out");
+            }
+
 
             // 7. Locations Analysis
             $output->write("Generating locations analysis... ");
@@ -118,9 +144,14 @@ class SourceBreakdownCommand extends Command
                 null,
                 $retry
             );
-            $locationsResult = $this->ai->generate($locationsPrompt);
+            $locationsResponse = $this->ai->generate($locationsPrompt);
+            $locationsResult = $locationsResponse->text;
             $duration = microtime(true) - $startTime;
             $output->writeln(sprintf("Done (%.2fs)", $duration));
+            if ($verbose) {
+                 $output->writeln("    Tokens: {$locationsResponse->inputTokens} in / {$locationsResponse->outputTokens} out");
+            }
+
 
             // 8. Timeline Analysis
             $output->write("Generating timeline analysis... ");
@@ -131,9 +162,14 @@ class SourceBreakdownCommand extends Command
                 null,
                 $retry
             );
-            $timelineResult = $this->ai->generate($timelinePrompt);
+            $timelineResponse = $this->ai->generate($timelinePrompt);
+            $timelineResult = $timelineResponse->text;
             $duration = microtime(true) - $startTime;
             $output->writeln(sprintf("Done (%.2fs)", $duration));
+            if ($verbose) {
+                 $output->writeln("    Tokens: {$timelineResponse->inputTokens} in / {$timelineResponse->outputTokens} out");
+            }
+
 
             // 9. Improve Dating of Events
             $output->write("Attempting to date undated events... ");
@@ -144,9 +180,14 @@ class SourceBreakdownCommand extends Command
                 null,
                 $retry
             );
-            $datedTimeline = $this->ai->generate($datingPrompt);
+            $datedResponse = $this->ai->generate($datingPrompt);
+            $datedTimeline = $datedResponse->text;
             $duration = microtime(true) - $startTime;
             $output->writeln(sprintf("Done (%.2fs)", $duration));
+            if ($verbose) {
+                 $output->writeln("    Tokens: {$datedResponse->inputTokens} in / {$datedResponse->outputTokens} out");
+            }
+
             
             $result = BreakdownResult::fromYaml($partiesResult, $locationsResult, $datedTimeline);
             $breakdown->setResult($result);

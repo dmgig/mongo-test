@@ -7,6 +7,7 @@ namespace App\Infrastructure\Ai\Gemini;
 use App\Domain\Ai\AiException;
 use App\Domain\Ai\AiModelInterface;
 use App\Domain\Ai\AiModels;
+use App\Domain\Ai\AiResponse;
 use App\Domain\Ai\Prompt;
 use Gemini\Client;
 use Gemini\Enums\Role;
@@ -24,7 +25,7 @@ class GeminiAdapter implements AiModelInterface
     ) {
     }
 
-    public function generate(Prompt $prompt): string
+    public function generate(Prompt $prompt): AiResponse
     {
         $model = $prompt->model ?? $this->modelName ?? $_ENV['GEMINI_MODEL'] ?? getenv('GEMINI_MODEL') ?? AiModels::GEMINI_PRO_LATEST;
         $attempt = 0;
@@ -34,7 +35,16 @@ class GeminiAdapter implements AiModelInterface
             try {
                 // Use the configured model
                 $response = $this->client->generativeModel($model)->generateContent((string) $prompt);
-                return $response->text();
+                
+                $inputTokens = 0;
+                $outputTokens = 0;
+                
+                if ($response->usageMetadata) {
+                     $inputTokens = $response->usageMetadata->promptTokenCount;
+                     $outputTokens = $response->usageMetadata->candidatesTokenCount;
+                }
+
+                return new AiResponse($response->text(), $inputTokens, $outputTokens);
             } catch (\Exception $e) {
                 $attempt++;
                 
