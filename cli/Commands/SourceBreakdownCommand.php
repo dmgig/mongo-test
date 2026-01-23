@@ -69,7 +69,8 @@ class SourceBreakdownCommand extends Command
             // 5. Process Chunks
             $output->writeln("Processing " . count($chunks) . " chunks...");
             foreach ($chunks as $i => $chunk) {
-                $output->writeln("  - Processing chunk " . ($i + 1));
+                $output->write("  - Processing chunk " . ($i + 1) . "... ");
+                $startTime = microtime(true);
 
                 $prompt = new Prompt(
                     Prompt::BREAKDOWN_SUMMARY_PROMPT,
@@ -82,8 +83,10 @@ class SourceBreakdownCommand extends Command
                     $updatedSummary = $this->ai->generate($prompt);
                     $breakdown->updateSummary($updatedSummary);
                     $this->breakdownRepo->save($breakdown);
+                    $duration = microtime(true) - $startTime;
+                    $output->writeln(sprintf("Done (%.2fs)", $duration));
                 } catch (AiException $e) {
-                    $output->writeln("<error>Chunk processing failed: {$e->getMessage()}</error>");
+                    $output->writeln("<error>Failed: {$e->getMessage()}</error>");
                     if (!$retry) {
                         $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
                     }
@@ -93,7 +96,8 @@ class SourceBreakdownCommand extends Command
             }
 
             // 6. Parties Analysis
-            $output->writeln("Generating analyses...");
+            $output->write("Generating parties analysis... ");
+            $startTime = microtime(true);
 
             $partiesPrompt = new Prompt(
                 Prompt::BREAKDOWN_PARTIES_PROMPT,
@@ -102,8 +106,12 @@ class SourceBreakdownCommand extends Command
                 $retry
             );
             $partiesResult = $this->ai->generate($partiesPrompt);
+            $duration = microtime(true) - $startTime;
+            $output->writeln(sprintf("Done (%.2fs)", $duration));
 
             // 7. Locations Analysis
+            $output->write("Generating locations analysis... ");
+            $startTime = microtime(true);
             $locationsPrompt = new Prompt(
                 Prompt::BREAKDOWN_LOCATIONS_PROMPT,
                 $breakdown->summary,
@@ -111,8 +119,12 @@ class SourceBreakdownCommand extends Command
                 $retry
             );
             $locationsResult = $this->ai->generate($locationsPrompt);
+            $duration = microtime(true) - $startTime;
+            $output->writeln(sprintf("Done (%.2fs)", $duration));
 
             // 8. Timeline Analysis
+            $output->write("Generating timeline analysis... ");
+            $startTime = microtime(true);
             $timelinePrompt = new Prompt(
                 Prompt::BREAKDOWN_TIMELINE_PROMPT,
                 $breakdown->summary,
@@ -120,9 +132,12 @@ class SourceBreakdownCommand extends Command
                 $retry
             );
             $timelineResult = $this->ai->generate($timelinePrompt);
+            $duration = microtime(true) - $startTime;
+            $output->writeln(sprintf("Done (%.2fs)", $duration));
 
             // 9. Improve Dating of Events
-            $output->writeln("Attempting to date undated events...");
+            $output->write("Attempting to date undated events... ");
+            $startTime = microtime(true);
             $datingPrompt = new Prompt(
                 Prompt::BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT,
                 $timelineResult,
@@ -130,6 +145,8 @@ class SourceBreakdownCommand extends Command
                 $retry
             );
             $datedTimeline = $this->ai->generate($datingPrompt);
+            $duration = microtime(true) - $startTime;
+            $output->writeln(sprintf("Done (%.2fs)", $duration));
             
             $result = BreakdownResult::fromYaml($partiesResult, $locationsResult, $datedTimeline);
             $breakdown->setResult($result);
