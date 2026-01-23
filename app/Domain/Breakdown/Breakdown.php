@@ -14,7 +14,7 @@ class Breakdown
         public string $summary,
         public readonly \DateTimeImmutable $createdAt,
         public \DateTimeImmutable $updatedAt,
-        public ?string $result = null
+        public ?BreakdownResult $result = null
     ) {
     }
 
@@ -35,7 +35,7 @@ class Breakdown
         string $summary,
         \DateTimeImmutable $createdAt,
         \DateTimeImmutable $updatedAt,
-        ?string $result
+        ?BreakdownResult $result
     ): self {
         return new self(
             $id,
@@ -53,7 +53,7 @@ class Breakdown
         $this->updatedAt = new \DateTimeImmutable();
     }
 
-    public function setResult(string $result): void
+    public function setResult(BreakdownResult $result): void
     {
         $this->result = $result;
         $this->updatedAt = new \DateTimeImmutable();

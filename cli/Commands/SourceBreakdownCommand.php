@@ -8,6 +8,7 @@ use App\Domain\Ai\AiModelInterface;
 use App\Domain\Ai\Prompt;
 use App\Domain\Breakdown\Breakdown;
 use App\Domain\Breakdown\BreakdownRepositoryInterface;
+use App\Domain\Breakdown\BreakdownResult;
 use App\Domain\Content\ChunkingService;
 use App\Domain\Content\ContentExtractorInterface;
 use App\Domain\Source\SourceId;
@@ -107,19 +108,16 @@ class SourceBreakdownCommand extends Command
             );
             $datedTimeline = $this->ai->generate($datingPrompt);
             
-            $finalResult = <<<OUTPUT
-                $partiesResult
-                
-                $locationsResult
-                
-                $datedTimeline
-            OUTPUT;
-            $breakdown->setResult($finalResult);
+            $result = BreakdownResult::fromYaml($partiesResult, $locationsResult, $datedTimeline);
+            $breakdown->setResult($result);
             $this->breakdownRepo->save($breakdown);
 
-            // 8. Output
+            // 10. Output
             $output->writeln("--- Final Result ---");
-            $output->writeln($finalResult);
+            // Simple output for now, the real result is structured in the DB
+            $output->writeln("Parties: " . count($result->parties));
+            $output->writeln("Locations: " . count($result->locations));
+            $output->writeln("Events: " . count($result->timeline));
             $output->writeln("--------------------");
             $output->writeln("Breakdown complete. You can review the breakdown at any time using the ID: " . $breakdown->id);
 
