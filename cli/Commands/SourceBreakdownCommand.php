@@ -67,7 +67,7 @@ class SourceBreakdownCommand extends Command
                 $output->writeln("  - Processing chunk " . ($i + 1));
 
                 $prompt = new Prompt(
-                    'You are an intelligence analyst. Your task is to identify key actors (people and organizations) and events from the provided text. The text is a small chunk of a larger document. I will also provide you with a running summary of the document so far. Your response should be a simple update to the running summary, incorporating any new information from the current chunk. You need especially to keep track of people, organizations, and dates (as accurately as possible).',
+                    Prompt::BREAKDOWN_SUMMARY_PROMPT,
                     "## Running Summary\n\n{$breakdown->summary}\n\n## Current Chunk\n\n$chunk"
                 );
 
@@ -76,30 +76,44 @@ class SourceBreakdownCommand extends Command
                 $this->breakdownRepo->save($breakdown);
             }
 
-            // 6. Final Analysis
+            // 6. Parties Analysis
             $output->writeln("Generating final analysis...");
 
             $partiesPrompt = new Prompt(
-                'You are an intelligence analyst. Based on the following summary of a document, please provide a list of all identified parties (people and organizations).',
+                Prompt::BREAKDOWN_PARTIES_PROMPT,
                 $breakdown->summary
             );
             $partiesResult = $this->ai->generate($partiesPrompt);
 
+            // 7. Locations Analysis
+            $locationsPrompt = new Prompt(
+                Prompt::BREAKDOWN_LOCATIONS_PROMPT,
+                $breakdown->summary
+            );
+            $locationsResult = $this->ai->generate($locationsPrompt);
+
+            // 8. Timeline Analysis
             $timelinePrompt = new Prompt(
-                'You are an intelligence analyst. Based on the following summary of a document, please provide a chronological timeline of events with the dates.',
+                Prompt::BREAKDOWN_TIMELINE_PROMPT,
                 $breakdown->summary
             );
             $timelineResult = $this->ai->generate($timelinePrompt);
 
-            // 7. Dating Step
+            // 9. Improve Dating of Events
             $output->writeln("Attempting to date undated events...");
             $datingPrompt = new Prompt(
-                'You are a historical archivist. Below is a timeline of events. For each item in the chronology that is marked as "Undated", please use your knowledge to find a more specific date (even a year or a month is helpful). If you cannot find a date, leave it as "Undated". Do not guess. Return the updated timeline.',
+                Prompt::BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT,
                 $timelineResult
             );
             $datedTimeline = $this->ai->generate($datingPrompt);
             
-            $finalResult = $partiesResult . "\n\n" . $datedTimeline;
+            $finalResult = <<<OUTPUT
+                $partiesResult
+                
+                $locationsResults
+                
+                $datedTimeline
+            OUTPUT;
             $breakdown->setResult($finalResult);
             $this->breakdownRepo->save($breakdown);
 
