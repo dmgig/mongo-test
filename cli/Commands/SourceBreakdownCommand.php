@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Cli\Commands;
 
+use App\Domain\Ai\AiException;
 use App\Domain\Ai\AiModelInterface;
 use App\Domain\Ai\Prompt;
 use App\Domain\Breakdown\Breakdown;
@@ -17,6 +18,7 @@ use League\HTMLToMarkdown\HtmlConverter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class SourceBreakdownCommand extends Command
@@ -36,12 +38,14 @@ class SourceBreakdownCommand extends Command
         $this
             ->setName('source:breakdown')
             ->setDescription('Breaks down a source into parties and events using AI.')
-            ->addArgument('id', InputArgument::REQUIRED, 'The Source ID');
+            ->addArgument('id', InputArgument::REQUIRED, 'The Source ID')
+            ->addOption('retry', null, InputOption::VALUE_NONE, 'Enable automatic retries on AI errors');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $id = $input->getArgument('id');
+        $retry = (bool)$input->getOption('retry');
         $sourceId = SourceId::fromString($id);
 
         try {
@@ -69,12 +73,23 @@ class SourceBreakdownCommand extends Command
 
                 $prompt = new Prompt(
                     Prompt::BREAKDOWN_SUMMARY_PROMPT,
-                    "## Running Summary\n\n{$breakdown->summary}\n\n## Current Chunk\n\n$chunk"
+                    "## Running Summary\n\n{$breakdown->summary}\n\n## Current Chunk\n\n$chunk",
+                    null,
+                    $retry
                 );
 
-                $updatedSummary = $this->ai->generate($prompt);
-                $breakdown->updateSummary($updatedSummary);
-                $this->breakdownRepo->save($breakdown);
+                try {
+                    $updatedSummary = $this->ai->generate($prompt);
+                    $breakdown->updateSummary($updatedSummary);
+                    $this->breakdownRepo->save($breakdown);
+                } catch (AiException $e) {
+                    $output->writeln("<error>Chunk processing failed: {$e->getMessage()}</error>");
+                    if (!$retry) {
+                        $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
+                    }
+                    // For chunks, we might want to stop or continue. Stopping is safer.
+                    throw $e;
+                }
             }
 
             // 6. Parties Analysis
@@ -82,21 +97,27 @@ class SourceBreakdownCommand extends Command
 
             $partiesPrompt = new Prompt(
                 Prompt::BREAKDOWN_PARTIES_PROMPT,
-                $breakdown->summary
+                $breakdown->summary,
+                null,
+                $retry
             );
             $partiesResult = $this->ai->generate($partiesPrompt);
 
             // 7. Locations Analysis
             $locationsPrompt = new Prompt(
                 Prompt::BREAKDOWN_LOCATIONS_PROMPT,
-                $breakdown->summary
+                $breakdown->summary,
+                null,
+                $retry
             );
             $locationsResult = $this->ai->generate($locationsPrompt);
 
             // 8. Timeline Analysis
             $timelinePrompt = new Prompt(
                 Prompt::BREAKDOWN_TIMELINE_PROMPT,
-                $breakdown->summary
+                $breakdown->summary,
+                null,
+                $retry
             );
             $timelineResult = $this->ai->generate($timelinePrompt);
 
@@ -104,7 +125,9 @@ class SourceBreakdownCommand extends Command
             $output->writeln("Attempting to date undated events...");
             $datingPrompt = new Prompt(
                 Prompt::BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT,
-                $timelineResult
+                $timelineResult,
+                null,
+                $retry
             );
             $datedTimeline = $this->ai->generate($datingPrompt);
             
