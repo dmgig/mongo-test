@@ -71,7 +71,7 @@ A Command Line Interface tool is available for managing the application.
   ```
 - **Source Breakdown**: Generates AI breakdown for a source, storing raw YAML results.
   ```bash
-  cli/unknown source:breakdown <source-id> [--chunk-limit <limit>] [--retry]
+  cli/unknown source:breakdown <source-id> [--chunk-limit <limit>] [--retry] [--strategy <quick|growing-summary>]
   ```
 
 ## Architecture

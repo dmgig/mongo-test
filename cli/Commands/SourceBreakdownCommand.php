@@ -24,6 +24,9 @@ use Symfony\Component\Console\Output\OutputInterface as ConsoleOutputInterface;
 
 class SourceBreakdownCommand extends Command
 {
+    private const STRATEGY_QUICK = 'quick';
+    private const STRATEGY_GROWING_SUMMARY = 'growing-summary';
+
     public function __construct(
         private readonly SourceService $sourceService,
         private readonly ContentExtractorInterface $extractor,
@@ -41,7 +44,8 @@ class SourceBreakdownCommand extends Command
             ->setDescription("Breaks down a source into parties and events using AI.")
             ->addArgument("id", InputArgument::REQUIRED, "The Source ID")
             ->addOption("retry", null, InputOption::VALUE_NONE, "Enable automatic retries on AI errors")
-            ->addOption("chunk-limit", null, InputOption::VALUE_REQUIRED, "Limit the number of chunks processed", null);
+            ->addOption("chunk-limit", null, InputOption::VALUE_REQUIRED, "Limit the number of chunks processed", null)
+            ->addOption("strategy", null, InputOption::VALUE_REQUIRED, "The breakdown strategy to use (quick or growing-summary)", self::STRATEGY_QUICK);
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -49,6 +53,7 @@ class SourceBreakdownCommand extends Command
         $id = $input->getArgument("id");
         $retry = (bool)$input->getOption("retry");
         $chunkLimit = $input->getOption("chunk-limit");
+        $strategy = $input->getOption("strategy");
 
         $sourceId = SourceId::fromString($id);
         $verbose = $output->isVerbose();
@@ -78,75 +83,133 @@ class SourceBreakdownCommand extends Command
                 $output->writeln("  (Limited to $chunkLimit chunks by --chunk-limit flag)");
             }
 
-            // 5. Process Chunks (Generate individual chunk summaries)
-            $output->writeln("Processing " . count($chunks) . " chunks to generate individual summaries...");
-            foreach ($chunks as $i => $chunk) {
-                $output->write("  - Processing chunk " . ($i + 1) . "... ");
-                if ($verbose) {
-                     $output->writeln("");
-                     $output->writeln("    Chunk Length: " . strlen($chunk) . " chars");
-                     $output->writeln("    Preview: " . substr($chunk, 0, 100) . "...");
-                }
-                
-                $startTime = microtime(true);
+            $masterSummary = '';
 
-                $prompt = new Prompt(
-                    Prompt::BREAKDOWN_SUMMARY_PROMPT,
-                    "## Current Chunk\n\n$chunk", // No running summary here anymore
+            if ($strategy === self::STRATEGY_GROWING_SUMMARY) {
+                $output->writeln("Processing chunks with growing summary strategy...");
+                $runningSummary = "";
+                foreach ($chunks as $i => $chunk) {
+                    $output->write("  - Processing chunk " . ($i + 1) . "... ");
+                    if ($verbose) {
+                        $output->writeln("");
+                        $output->writeln("    Chunk Length: " . strlen($chunk) . " chars");
+                        $output->writeln("    Preview: " . substr($chunk, 0, 100) . "...");
+                    }
+
+                    $startTime = microtime(true);
+
+                    $prompt = new Prompt(
+                        Prompt::BREAKDOWN_GROWING_SUMMARY_PROMPT,
+                        "## Current Chunk\n\n$chunk\n\n## Running Summary\n\n$runningSummary",
+                        null,
+                        $retry
+                    );
+
+                    if ($veryVerbose) {
+                        $output->writeln("    Prompt: " . (string)$prompt);
+                    }
+
+                    try {
+                        $response = $this->ai->generate($prompt);
+                        $updatedSummary = $response->text;
+
+                        $breakdown->addChunkSummary($updatedSummary); // Store each updated summary
+                        $runningSummary = $updatedSummary; // Update running summary
+                        $this->breakdownRepo->save($breakdown);
+                        $duration = microtime(true) - $startTime;
+                        $output->writeln(sprintf("Done (%.2fs)", $duration));
+
+                        if ($verbose) {
+                            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+                        }
+                        if ($veryVerbose) {
+                            $output->writeln("    Response: " . $updatedSummary);
+                        }
+                    } catch (AiException $e) {
+                        $output->writeln("<error>Failed: {$e->getMessage()}</error>");
+                        if (!$retry) {
+                            $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
+                        }
+                        throw $e;
+                    }
+                }
+                $masterSummary = $runningSummary; // The last running summary is the master summary
+
+            } elseif ($strategy === self::STRATEGY_QUICK) {
+                // Existing logic for quick strategy
+                // 5. Process Chunks (Generate individual chunk summaries)
+                $output->writeln("Processing " . count($chunks) . " chunks to generate individual summaries (quick strategy)...");
+                foreach ($chunks as $i => $chunk) {
+                    $output->write("  - Processing chunk " . ($i + 1) . "... ");
+                    if ($verbose) {
+                         $output->writeln("");
+                         $output->writeln("    Chunk Length: " . strlen($chunk) . " chars");
+                         $output->writeln("    Preview: " . substr($chunk, 0, 100) . "...");
+                    }
+                    
+                    $startTime = microtime(true);
+
+                    $prompt = new Prompt(
+                        Prompt::BREAKDOWN_SUMMARY_PROMPT,
+                        "## Current Chunk\n\n$chunk",
+                        null,
+                        $retry
+                    );
+
+                    if ($veryVerbose) {
+                         $output->writeln("    Prompt: " . (string)$prompt);
+                    }
+
+                    try {
+                        $response = $this->ai->generate($prompt);
+                        $chunkSummary = $response->text;
+                        
+                        $breakdown->addChunkSummary($chunkSummary);
+                        $this->breakdownRepo->save($breakdown);
+                        $duration = microtime(true) - $startTime;
+                        $output->writeln(sprintf("Done (%.2fs)", $duration));
+                        
+                        if ($verbose) {
+                            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+                        }
+                        if ($veryVerbose) {
+                            $output->writeln("    Response: " . $chunkSummary);
+                        }
+                    } catch (AiException $e) {
+                        $output->writeln("<error>Failed: {$e->getMessage()}</error>");
+                        if (!$retry) {
+                            $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
+                        }
+                        throw $e;
+                    }
+                }
+
+                // 6. Generate Master Summary
+                $output->write("Generating master summary from chunk summaries... ");
+                $startTime = microtime(true);
+                $masterSummaryPrompt = new Prompt(
+                    Prompt::BREAKDOWN_MASTER_SUMMARY_PROMPT,
+                    implode("\n\n", $breakdown->chunkSummaries),
                     null,
                     $retry
                 );
-
                 if ($veryVerbose) {
-                     $output->writeln("    Prompt: " . (string)$prompt);
+                     $output->writeln("    Prompt: " . (string)$masterSummaryPrompt);
                 }
-
-                try {
-                    $response = $this->ai->generate($prompt);
-                    $chunkSummary = $response->text;
-                    
-                    $breakdown->addChunkSummary($chunkSummary); // Add to chunkSummaries array
-                    $this->breakdownRepo->save($breakdown);
-                    $duration = microtime(true) - $startTime;
-                    $output->writeln(sprintf("Done (%.2fs)", $duration));
-                    
-                    if ($verbose) {
-                        $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
-                    }
-                    if ($veryVerbose) {
-                        $output->writeln("    Response: " . $chunkSummary);
-                    }
-                } catch (AiException $e) {
-                    $output->writeln("<error>Failed: {$e->getMessage()}</error>");
-                    if (!$retry) {
-                        $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
-                    }
-                    throw $e;
+                $masterSummaryResponse = $this->ai->generate($masterSummaryPrompt);
+                $masterSummary = $masterSummaryResponse->text;
+                $duration = microtime(true) - $startTime;
+                $output->writeln(sprintf("Done (%.2fs)", $duration));
+                if ($verbose) {
+                     $output->writeln("    Tokens: {$masterSummaryResponse->inputTokens} in / {$masterSummaryResponse->outputTokens} out");
                 }
+                if ($veryVerbose) {
+                     $output->writeln("    Response: " . $masterSummary);
+                }
+            } else {
+                throw new \InvalidArgumentException("Unknown breakdown strategy: " . $strategy);
             }
-
-            // 6. Generate Master Summary
-            $output->write("Generating master summary from chunk summaries... ");
-            $startTime = microtime(true);
-            $masterSummaryPrompt = new Prompt(
-                Prompt::BREAKDOWN_MASTER_SUMMARY_PROMPT,
-                implode("\n\n", $breakdown->chunkSummaries), // Combine all chunk summaries
-                null,
-                $retry
-            );
-            if ($veryVerbose) {
-                 $output->writeln("    Prompt: " . (string)$masterSummaryPrompt);
-            }
-            $masterSummaryResponse = $this->ai->generate($masterSummaryPrompt);
-            $masterSummary = $masterSummaryResponse->text;
-            $duration = microtime(true) - $startTime;
-            $output->writeln(sprintf("Done (%.2fs)", $duration));
-            if ($verbose) {
-                 $output->writeln("    Tokens: {$masterSummaryResponse->inputTokens} in / {$masterSummaryResponse->outputTokens} out");
-            }
-            if ($veryVerbose) {
-                 $output->writeln("    Response: " . $masterSummary);
-            }
+            
             $breakdown->updateMasterSummary($masterSummary);
             $this->breakdownRepo->save($breakdown);
 
@@ -259,7 +322,8 @@ class SourceBreakdownCommand extends Command
     {
         // Remove '```yaml' at the beginning and '```' at the end
         $text = preg_replace('/^```yaml\s*\n?/i', '', $text);
-        $text = preg_replace('/\n?```\s*$/', '', $text);
+        $text = preg_replace('/
+?```\s*$/', '', $text);
         return trim($text);
     }
 }
