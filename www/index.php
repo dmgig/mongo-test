@@ -17,6 +17,9 @@ use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoPartyRepository;
 use App\Infrastructure\Mongo\MongoPartyRelationshipRepository;
 use App\Infrastructure\Mongo\MongoSourceRepository;
+use App\Infrastructure\Mongo\MongoBreakdownRepository;
+use App\Domain\Breakdown\BreakdownService;
+use App\Domain\Breakdown\BreakdownId;
 
 require_once dirname(__DIR__) . '/settings.php';
 
@@ -32,6 +35,7 @@ $app->addErrorMiddleware(true, true, true);
 $app->get('/', function (Request $request, Response $response) {
     $html = '<h1>Home</h1><ul>
     <li><a href="/parties">List Parties</a></li>
+    <li><a href="/sources">List Sources</a></li>
     <li><a href="/party/create">Create Party</a></li>
     <li><a href="/party/relationship/create">Create Relationship</a></li>
     <li><a href="/party/delete" style="color: red;">Delete Party</a></li>
@@ -39,6 +43,56 @@ $app->get('/', function (Request $request, Response $response) {
     $response->getBody()->write($html);
     return $response;
 });
+
+// GET /sources - List Sources
+$app->get('/sources', function (Request $request, Response $response) {
+    try {
+        $connector = MongoConnector::fromEnvironment();
+        $sourceRepo = new MongoSourceRepository($connector);
+        $breakdownRepo = new MongoBreakdownRepository($connector);
+        $breakdownService = new BreakdownService($breakdownRepo);
+        
+        $sources = $sourceRepo->findAll();
+        
+        ob_start();
+        require __DIR__ . '/../templates/source_list.php';
+        $html = ob_get_clean();
+        $response->getBody()->write($html);
+        return $response;
+
+    } catch (\Exception $e) {
+        $response->getBody()->write("Error: " . htmlspecialchars($e->getMessage()));
+        return $response->withStatus(500);
+    }
+});
+
+// GET /breakdown/{id} - Show Breakdown Details
+$app->get('/breakdown/{id}', function (Request $request, Response $response, array $args) {
+    $idStr = $args['id'] ?? '';
+    
+    if (!$idStr) {
+        $response->getBody()->write("Breakdown ID is required.");
+        return $response->withStatus(400);
+    }
+
+    try {
+        $connector = MongoConnector::fromEnvironment();
+        $breakdownRepo = new MongoBreakdownRepository($connector);
+        
+        $breakdown = $breakdownRepo->find(BreakdownId::fromString($idStr));
+
+        ob_start();
+        require __DIR__ . '/../templates/breakdown_detail.php';
+        $html = ob_get_clean();
+        $response->getBody()->write($html);
+        return $response;
+
+    } catch (\Exception $e) {
+        $response->getBody()->write("Error: " . htmlspecialchars($e->getMessage()));
+        return $response->withStatus(404);
+    }
+});
+
 
     // GET /party/detail/{id} - Show Party Details
 $app->get('/party/detail/{id}', function (Request $request, Response $response, array $args) {

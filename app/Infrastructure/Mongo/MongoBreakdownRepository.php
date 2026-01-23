@@ -47,9 +47,29 @@ class MongoBreakdownRepository implements BreakdownRepositoryInterface
             BreakdownId::fromString((string)$data['_id']),
             SourceId::fromString((string)$data['sourceId']),
             $data['summary'],
-            $data['createdAt']->toDateTime(),
-            $data['updatedAt']->toDateTime(),
+            \DateTimeImmutable::createFromMutable($data['createdAt']->toDateTime()),
+            \DateTimeImmutable::createFromMutable($data['updatedAt']->toDateTime()),
             $data['result']
         );
+    }
+
+    public function findBySource(SourceId $sourceId): array
+    {
+        $cursor = $this->collection->find(
+            ['sourceId' => (string)$sourceId],
+            ['sort' => ['createdAt' => -1]]
+        );
+        $breakdowns = [];
+        foreach ($cursor as $data) {
+            $breakdowns[] = Breakdown::reconstitute(
+                BreakdownId::fromString((string)$data['_id']),
+                SourceId::fromString((string)$data['sourceId']),
+                $data['summary'],
+                \DateTimeImmutable::createFromMutable($data['createdAt']->toDateTime()),
+                \DateTimeImmutable::createFromMutable($data['updatedAt']->toDateTime()),
+                $data['result']
+            );
+        }
+        return $breakdowns;
     }
 }
