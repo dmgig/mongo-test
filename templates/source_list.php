@@ -10,7 +10,7 @@
             <li>
                 <strong>ID:</strong> <?= $source->id ?><br>
                 <a href="<?= htmlspecialchars($source->url) ?>" target="_blank"><?= htmlspecialchars($source->url) ?></a>
-                (Retrieved: <?= $source->accessedAt->format('Y-m-d H:i:s') ?>)
+                (Retrieved: <?= $source->accessedAt->setTimezone(new DateTimeZone('America/New_York'))->format('Y-m-d h:i:s A') ?>)
                 <ul>
                     <?php 
                     $breakdowns = $breakdownService->getBreakdownsForSource($source->id);
@@ -20,7 +20,7 @@
                         foreach ($breakdowns as $breakdown): ?>
                             <li>
                                 <a href="/breakdown/<?= $breakdown->id ?>"><?= $breakdown->id ?></a> 
-                                (Created: <?= $breakdown->createdAt->format('Y-m-d H:i:s') ?>)
+                                (Created: <?= $breakdown->createdAt->setTimezone(new DateTimeZone('America/New_York'))->format('Y-m-d h:i:s A') ?>)
                             </li>
                         <?php endforeach;
                     endif; ?>
