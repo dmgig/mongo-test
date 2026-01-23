@@ -6,7 +6,7 @@ namespace App\Domain\Content;
 
 class ChunkingService
 {
-    private const CHUNK_SIZE = 8000; // Characters
+    private const CHUNK_SIZE = 4000; // Characters
 
     public function chunk(string $text): array
     {
