@@ -45,6 +45,9 @@ The application provides a simple web interface to manage Parties and Relationsh
 5.  **Delete Party** (`/party/delete`):
     - Delete a Party by ID.
     - **Warning**: Automatically deletes all associated relationships (Cascading Delete).
+6.  **Breakdown Detail** (`/breakdown/{id}`):
+    - View the detailed AI breakdown for a specific source.
+    - Displays the raw YAML output for identified parties, locations, and timeline.
 
 ### Admin Panel
 
@@ -65,6 +68,10 @@ A Command Line Interface tool is available for managing the application.
 - **Create Source**: Fetch and store a web page as a source.
   ```bash
   cli/unknown sources:create https://example.com
+  ```
+- **Source Breakdown**: Generates AI breakdown for a source, storing raw YAML results.
+  ```bash
+  cli/unknown source:breakdown <source-id> [--chunk-limit <limit>] [--retry] [--strategy <quick|growing-summary>]
   ```
 
 ## Architecture

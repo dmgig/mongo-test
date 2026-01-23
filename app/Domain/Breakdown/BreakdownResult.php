@@ -9,6 +9,7 @@ use App\Domain\Event\FuzzyDate;
 use App\Domain\Event\DatePrecision;
 use App\Domain\Party\Party;
 use App\Domain\Party\PartyType;
+use App\Domain\Party\PartyId;
 use Symfony\Component\Yaml\Yaml;
 
 class BreakdownResult
@@ -32,46 +33,46 @@ class BreakdownResult
         $timelineData = Yaml::parse($timelineYaml);
 
         $parties = [];
-        if (isset($partiesData['people'])) {
-            foreach ($partiesData['people'] as $p) {
-                // For now, we'll just create a Party object. Ideally, we'd have a more robust way to handle descriptions.
-                $parties[] = Party::create($p['name'], PartyType::INDIVIDUAL); 
+        if (isset($partiesData["people"])) {
+            foreach ($partiesData["people"] as $p) {
+                // For now, we\"ll just create a Party object. Ideally, we\"d have a more robust way to handle descriptions.
+                $parties[] = Party::create($p["name"], PartyType::INDIVIDUAL);
             }
         }
-        if (isset($partiesData['organizations'])) {
-            foreach ($partiesData['organizations'] as $o) {
-                $parties[] = Party::create($o['official_name'], PartyType::ORGANIZATION);
+        if (isset($partiesData["organizations"])) {
+            foreach ($partiesData["organizations"] as $o) {
+                $parties[] = Party::create($o["official_name"], PartyType::ORGANIZATION);
             }
         }
 
-        $locations = $locationsData['locations'] ?? [];
+        $locations = $locationsData["locations"] ?? [];
 
         $timeline = [];
-        if (isset($timelineData['events'])) {
-            foreach ($timelineData['events'] as $e) {
+        if (isset($timelineData["events"])) {
+            foreach ($timelineData["events"] as $e) {
                 $startDate = null;
-                if (isset($e['start_date'])) {
+                if (isset($e["start_date"])) {
                     $startDate = new FuzzyDate(
-                        new \DateTimeImmutable($e['start_date']),
-                        DatePrecision::from(strtolower($e['start_precision'] ?? 'year')),
-                        $e['is_circa'] ?? false,
-                        $e['human_readable_date'] ?? null
+                        new \DateTimeImmutable($e["start_date"]),
+                        DatePrecision::from(strtolower($e["start_precision"] ?? "year")),
+                        $e["is_circa"] ?? false,
+                        $e["human_readable_date"] ?? null
                     );
                 }
 
                 $endDate = null;
-                if (isset($e['end_date'])) {
+                if (isset($e["end_date"])) {
                     $endDate = new FuzzyDate(
-                        new \DateTimeImmutable($e['end_date']),
-                        DatePrecision::from(strtolower($e['end_precision'] ?? 'year')),
-                        $e['is_circa'] ?? false,
+                        new \DateTimeImmutable($e["end_date"]),
+                        DatePrecision::from(strtolower($e["end_precision"] ?? "year")),
+                        $e["is_circa"] ?? false,
                         null 
                     );
                 }
 
                 $timeline[] = new Event(
-                    $e['name'],
-                    $e['description'],
+                    $e["name"],
+                    $e["description"],
                     $startDate,
                     $endDate
                 );
@@ -105,12 +106,53 @@ class BreakdownResult
     }
     
     public static function fromArray(array $data): self {
-        // Rehydrate logic would go here. For now, since we store the result as a blob in MongoDB,
-        // we might not strictly need this if we store the raw YAMLs separately or the structured JSON.
-        // However, the prompt history implies we're storing the *result* in the Breakdown entity. 
-        // Let's assume we'll store the structured array in Mongo for better querying later.
-        
-        // ... implementing minimal rehydration for now ...
-        return new self([], [], []); 
+        $parties = [];
+        foreach (($data['parties'] ?? []) as $pData) {
+            // MongoDB stores createdAt as BSON\UTCDateTime, so convert it back to DateTimeImmutable
+            $createdAt = \DateTimeImmutable::createFromMutable($pData['created_at']->toDateTime());
+
+            $parties[] = Party::reconstitute(
+                PartyId::fromString($pData['_id']),
+                $pData['name'],
+                PartyType::from($pData['type']),
+                $createdAt
+            );
+        }
+
+        $locations = (array)($data['locations'] ?? []);
+
+        $timeline = [];
+        foreach (($data['timeline'] ?? []) as $eData) {
+            $startDate = null;
+            if (isset($eData['startDate'])) {
+                $sd = $eData['startDate'];
+                $startDate = new FuzzyDate(
+                    new \DateTimeImmutable($sd['dateTime']),
+                    DatePrecision::from($sd['precision']),
+                    $sd['isCirca'] ?? false,
+                    $sd['humanReadable'] ?? null
+                );
+            }
+
+            $endDate = null;
+            if (isset($eData['endDate'])) {
+                $ed = $eData['endDate'];
+                $endDate = new FuzzyDate(
+                    new \DateTimeImmutable($ed['dateTime']),
+                    DatePrecision::from($ed['precision']),
+                    $ed['isCirca'] ?? false,
+                    $ed['humanReadable'] ?? null
+                );
+            };
+
+            $timeline[] = new Event(
+                $eData['name'],
+                $eData['description'],
+                $startDate,
+                $endDate
+            );
+        }
+
+        return new self($parties, $locations, $timeline); 
     }
 }

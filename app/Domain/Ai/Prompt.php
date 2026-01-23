@@ -6,79 +6,89 @@ namespace App\Domain\Ai;
 
 class Prompt
 {
-    // Define your hardcoded system prompts here as constants
-    public const DEFAULT_SYSTEM_PROMPT = <<<PRMT
-        You are a helpful AI assistant.'
-    PRMT;
+    public const DEFAULT_SYSTEM_PROMPT = "You are a helpful AI assistant.";
 
-    public const ANALYSIS_PROMPT = <<<PRMT
-        Analyze the following data and provide insights.
-    PRMT;
+    public const ANALYSIS_PROMPT = "Analyze the following data and provide insights.";
     
     public const CONTENT_SELECTOR_PROMPT = <<<PRMT
-        You are an expert web scraper. Analyze the following HTML skeleton and 
-        identify the CSS selectors that target the main article content 
-        (e.g., title, body text, main images). Strive for precision. You can return 
-        multiple comma-separated selectors. Exclude headers, footers, sidebars, navigation, 
-        comments, and script tags. Return ONLY the CSS selector(s), nothing else.
+        You are an expert web scraper. Analyze the provided HTML skeleton to identify
+        CSS selectors for the main article content (title, body text, main images).
+        Be precise and return only comma-separated selectors. Exclude navigation, headers,
+        footers, sidebars, comments, and script tags.
     PRMT;
     
     public const BREAKDOWN_SUMMARY_PROMPT = <<<PRMT
-        You are an intelligence analyst. Your task is to identify key actors (people and organizations),
-        locations, and events from the provided text, which is a small chunk of a larger document.
-        Your response should be a concise summary of this chunk, focusing on entities and events. 
-        You need to keep track of people, organizations, locations, and dates (as accurately as possible).
-        Return a brief, structured summary of the current chunk as text, not YAML. This will be used internally.
+        You are an intelligence analyst. Summarize the provided text chunk.
+        Identify key actors (people, organizations), locations, and events.
+        Focus on concise entity and event extraction. Maintain accuracy in dates.
+        Return a brief, structured summary as plain text, not YAML. This is for internal use.
     PRMT;
 
     public const BREAKDOWN_MASTER_SUMMARY_PROMPT = <<<PRMT
-        You are an intelligence analyst. Below are several summaries of different chunks of a larger document.
-        Your task is to synthesize these into a single, comprehensive master summary. This master summary
-        should identify all key actors (people and organizations), locations, and events mentioned across all chunks.
-        Ensure accuracy in people, organizations, locations, and dates.
-        Return a comprehensive, structured master summary of the entire document as text, not YAML. This will be used internally.
+        You are an intelligence analyst. Synthesize the provided chunk summaries
+        into a single, comprehensive master summary. Identify all key actors (people,
+        organizations), locations, and events mentioned across all chunks.
+        Ensure accuracy in entities and dates. Return the master summary as plain text, not YAML.
+        This is for internal use.
+    PRMT;
+    
+    public const BREAKDOWN_GROWING_SUMMARY_PROMPT = <<<PRMT
+        You are an intelligence analyst. Update the provided running summary with new information
+        from the current text chunk. Identify and integrate new key actors (people, organizations),
+        locations, and events. Prioritize new details and refine existing ones for clarity.
+        If the running summary is empty, use the current chunk as the initial summary.
+        Maintain accuracy in entities and dates. Return the updated summary as plain text, not YAML.
     PRMT;
     
     public const BREAKDOWN_PARTIES_PROMPT = <<<PRMT
-        You are an intelligence analyst populating a YAML file. Based on the following summary of a document, 
-        please provide a list of all identified parties (people and organizations).
-        
-        The YAML structure should be:
-        
+        You are an intelligence analyst. Based on the provided document summary,
+        generate a YAML list of all identified parties (people and organizations).
+
+        YAML Structure:
         people:
-          - name: "full name"
-            description: "a brief description"
+          - name: "Full Name"
+            description: "Brief description"
         organizations:
-          - official_name: "official name"
-            alternate_names: ["alt name 1", "acronym"]
-            description: "a brief description"
+          - official_name: "Official Name"
+            alternate_names: ["Alt Name 1", "Acronym"]
+            description: "Brief description"
     PRMT;
 
     public const BREAKDOWN_LOCATIONS_PROMPT = <<<PRMT
-        You are an intelligence analyst populating a YAML file. Based on the following summary of a document, 
-        please provide a list of all identified locations with infered lower levels of
-        specificity for disambiguation. Return as YAML.
+        You are an intelligence analyst. Based on the provided document summary,
+        generate a YAML list of all identified locations, inferring lower specificity
+        levels for disambiguation where appropriate.
+
+        YAML Structure:
+        locations:
+          - name: "Location Name"
+            # ... other inferred details like city, country, coordinates if available and relevant
     PRMT;
 
     public const BREAKDOWN_TIMELINE_PROMPT = <<<PRMT
-        You are an intelligence analyst populating a YAML file. Based on the following summary of a document, 
-        please provide a chronological timeline of events.
-        
-        The YAML structure should be:
+        You are an intelligence analyst. Based on the provided document summary,
+        generate a chronological YAML timeline of events.
 
+        YAML Structure:
         events:
           - name: "Event Name"
             description: "Event description."
-            human_readable_date: "e.g., 'the summer of '89', 'a few days after the incident'"
-            start_date: "YYYY-MM-DD HH:MM:SS"
+            human_readable_date: "e.g., \'the summer of \'89\', \'a few days after the incident\', \'late 1980s\', \'early 2000s\', \'March 1999\', \'May 15, 2001\', \'circa 1963\', \'1963\', \'1963-11-22\', \'1963-11-22 13:30:00\'
+            start_date: "YYYY-MM-DD HH:MM:SS" # UTC or with timezone if available, otherwise assume local.
             start_precision: "year" # or month, day, hour, minute, second
-            end_date: "YYYY-MM-DD HH:MM:SS"
-            end_precision: "year"
-            is_circa: false
+            end_date: "YYYY-MM-DD HH:MM:SS" # Optional
+            end_precision: "year" # Optional, or month, day, hour, minute, second
+            is_circa: false # Boolean
     PRMT;
     
     public const BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT = <<<PRMT
-       You are a historical archivist populating a YAML file. Below is a timeline of events in YAML format. For each event with an imprecise date, please use your knowledge to find a more specific date. If you cannot find a date, leave it as is. Do not guess. Return the updated timeline in the same YAML format.
+        You are a historical archivist. Refine the provided YAML timeline.
+        For each event with an imprecise `human_readable_date`, `start_date`, or `start_precision`,
+        use your knowledge to find a more specific `start_date` and `start_precision`.
+        If an `end_date` is missing but can be inferred, add it.
+        If `is_circa` is true but a precise date can be found, set `is_circa` to false.
+        Do not guess dates; if a more specific date cannot be confidently determined,
+        leave the existing values as they are. Return the updated timeline in the same YAML format.
     PRMT;
 
     public function __construct(
