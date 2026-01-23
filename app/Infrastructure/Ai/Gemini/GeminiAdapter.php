@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Ai\Gemini;
 
 use App\Domain\Ai\AiModelInterface;
+use App\Domain\Ai\AiModels;
 use App\Domain\Ai\Prompt;
 use Gemini\Client;
 use Gemini\Enums\Role;
@@ -21,7 +22,7 @@ class GeminiAdapter implements AiModelInterface
 
     public function generate(Prompt $prompt): string
     {
-        $model = $this->modelName ?? $_ENV['GEMINI_MODEL'] ?? getenv('GEMINI_MODEL') ?? 'gemini-2.5-pro';
+        $model = $prompt->model ?? $this->modelName ?? $_ENV['GEMINI_MODEL'] ?? getenv('GEMINI_MODEL') ?? AiModels::GEMINI_PRO_LATEST;
         
         // Use the configured model
         $response = $this->client->generativeModel($model)->generateContent((string) $prompt);

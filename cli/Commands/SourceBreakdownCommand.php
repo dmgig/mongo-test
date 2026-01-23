@@ -77,7 +77,7 @@ class SourceBreakdownCommand extends Command
             }
 
             // 6. Parties Analysis
-            $output->writeln("Generating final analysis...");
+            $output->writeln("Generating analyses...");
 
             $partiesPrompt = new Prompt(
                 Prompt::BREAKDOWN_PARTIES_PROMPT,
@@ -110,7 +110,7 @@ class SourceBreakdownCommand extends Command
             $finalResult = <<<OUTPUT
                 $partiesResult
                 
-                $locationsResults
+                $locationsResult
                 
                 $datedTimeline
             OUTPUT;
