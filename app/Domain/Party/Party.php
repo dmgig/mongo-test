@@ -11,6 +11,8 @@ final class Party
         public string $name,
         public readonly PartyType $type,
         public readonly \DateTimeImmutable $createdAt,
+        public ?array $aliases = null, // New: for individuals
+        public ?string $disambiguationDescription = null // New: for individuals and organizations
     ) {
     }
 
@@ -20,7 +22,9 @@ final class Party
             PartyId::generate(),
             $name,
             $type,
-            new \DateTimeImmutable()
+            new \DateTimeImmutable(),
+            null, // aliases default
+            null  // disambiguationDescription default
         );
     }
 
@@ -28,13 +32,17 @@ final class Party
         PartyId $id,
         string $name,
         PartyType $type,
-        \DateTimeImmutable $createdAt
+        \DateTimeImmutable $createdAt,
+        ?array $aliases,
+        ?string $disambiguationDescription
     ): self {
         return new self(
             $id,
             $name,
             $type,
-            $createdAt
+            $createdAt,
+            $aliases,
+            $disambiguationDescription
         );
     }
 
@@ -47,9 +55,9 @@ final class Party
             '_id' => $this->id->value,
             'name' => $this->name,
             'type' => $this->type->value,
-            // We use BSON\UTCDateTime here for direct MongoDB compatibility.
-            // In a stricter architecture, this conversion might happen in a Repository.
             'created_at' => new \MongoDB\BSON\UTCDateTime($this->createdAt),
+            'aliases' => $this->aliases,
+            'disambiguationDescription' => $this->disambiguationDescription,
         ];
     }
 }

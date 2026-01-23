@@ -43,15 +43,19 @@ class Prompt
     public const BREAKDOWN_PARTIES_PROMPT = <<<PRMT
         You are an intelligence analyst. Based on the provided document summary,
         generate a YAML list of all identified parties (people and organizations).
+        
+        The goal for individuals is a single identifiable consciousness.
+        Descriptions should be concise and for disambiguation only (e.g., "(US Senator)", "(Electrician)").
 
         YAML Structure:
         people:
-          - name: "Full Name"
-            description: "Brief description"
+          - name: "Full Name of Individual"
+            aliases: ["Nickname", "Known As"] # Optional
+            disambiguation_description: "(e.g., US Senator, Lead Scientist at ACME Corp)" # Optional, for disambiguation only
         organizations:
-          - official_name: "Official Name"
-            alternate_names: ["Alt Name 1", "Acronym"]
-            description: "Brief description"
+          - official_name: "Official Name of Organization"
+            alternate_names: ["Acronym", "Common Name"] # Optional
+            description: "(e.g., Global technology conglomerate, Local community outreach group)" # Optional, for disambiguation only
     PRMT;
 
     public const BREAKDOWN_LOCATIONS_PROMPT = <<<PRMT

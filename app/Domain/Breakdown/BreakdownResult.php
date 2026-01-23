@@ -36,12 +36,22 @@ class BreakdownResult
         if (isset($partiesData["people"])) {
             foreach ($partiesData["people"] as $p) {
                 // For now, we\"ll just create a Party object. Ideally, we\"d have a more robust way to handle descriptions.
-                $parties[] = Party::create($p["name"], PartyType::INDIVIDUAL);
+                $parties[] = Party::create(
+                    $p["name"],
+                    PartyType::INDIVIDUAL,
+                    $p["aliases"] ?? null,
+                    $p["disambiguation_description"] ?? null
+                );
             }
         }
         if (isset($partiesData["organizations"])) {
             foreach ($partiesData["organizations"] as $o) {
-                $parties[] = Party::create($o["official_name"], PartyType::ORGANIZATION);
+                $parties[] = Party::create(
+                    $o["official_name"],
+                    PartyType::ORGANIZATION,
+                    $o["alternate_names"] ?? null,
+                    $o["description"] ?? null
+                );
             }
         }
 
@@ -84,6 +94,9 @@ class BreakdownResult
     
     public function toArray(): array {
         return [
+            // NOTE: Using `name` and `disambiguationDescription` as the primary description fields for display
+            // This avoids passing the entire Party object to the view and simplifies display logic.
+            // If a full object rehydration is needed, the `fromArray` method will handle it.
             'parties' => array_map(fn(Party $p) => $p->toArray(), $this->parties),
             'locations' => $this->locations,
             'timeline' => array_map(fn(Event $e) => [ // We need a toArray on Event/FuzzyDate ideally, but doing inline for now
@@ -107,47 +120,49 @@ class BreakdownResult
     
     public static function fromArray(array $data): self {
         $parties = [];
-        foreach (($data['parties'] ?? []) as $pData) {
+        foreach (($data["parties"] ?? []) as $pData) {
             // MongoDB stores createdAt as BSON\UTCDateTime, so convert it back to DateTimeImmutable
-            $createdAt = \DateTimeImmutable::createFromMutable($pData['created_at']->toDateTime());
+            $createdAt = \DateTimeImmutable::createFromMutable($pData["created_at"]->toDateTime());
 
             $parties[] = Party::reconstitute(
-                PartyId::fromString($pData['_id']),
-                $pData['name'],
-                PartyType::from($pData['type']),
-                $createdAt
+                PartyId::fromString($pData["_id"]),
+                $pData["name"],
+                PartyType::from($pData["type"]),
+                $createdAt,
+                $pData["aliases"] ?? null, // New: Pass aliases
+                $pData["disambiguationDescription"] ?? null // New: Pass disambiguationDescription
             );
         }
 
-        $locations = (array)($data['locations'] ?? []);
+        $locations = (array)($data["locations"] ?? []);
 
         $timeline = [];
-        foreach (($data['timeline'] ?? []) as $eData) {
+        foreach (($data["timeline"] ?? []) as $eData) {
             $startDate = null;
-            if (isset($eData['startDate'])) {
-                $sd = $eData['startDate'];
+            if (isset($eData["startDate"])) {
+                $sd = $eData["startDate"];
                 $startDate = new FuzzyDate(
-                    new \DateTimeImmutable($sd['dateTime']),
-                    DatePrecision::from($sd['precision']),
-                    $sd['isCirca'] ?? false,
-                    $sd['humanReadable'] ?? null
+                    new \DateTimeImmutable($sd["dateTime"]),
+                    DatePrecision::from($sd["precision"]),
+                    $sd["isCirca"] ?? false,
+                    $sd["humanReadable"] ?? null
                 );
             }
 
             $endDate = null;
-            if (isset($eData['endDate'])) {
-                $ed = $eData['endDate'];
+            if (isset($eData["endDate"])) {
+                $ed = $eData["endDate"];
                 $endDate = new FuzzyDate(
-                    new \DateTimeImmutable($ed['dateTime']),
-                    DatePrecision::from($ed['precision']),
-                    $ed['isCirca'] ?? false,
-                    $ed['humanReadable'] ?? null
+                    new \DateTimeImmutable($ed["dateTime"]),
+                    DatePrecision::from($ed["precision"]),
+                    $ed["isCirca"] ?? false,
+                    $ed["humanReadable"] ?? null
                 );
             };
 
             $timeline[] = new Event(
-                $eData['name'],
-                $eData['description'],
+                $eData["name"],
+                $eData["description"],
                 $startDate,
                 $endDate
             );
