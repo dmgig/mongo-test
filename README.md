@@ -35,17 +35,21 @@ The application provides a simple web interface to manage Parties and Relationsh
 1.  **Home** (`/`): Dashboard with links to all actions.
 2.  **List Parties** (`/parties`):
     - View all registered parties with their Name and ID.
-3.  **Create Party** (`/party/create`): 
+3.  **List Sources** (`/sources`):
+    - View all registered sources for breakdown.
+4.  **Master Timeline** (`/timeline`):
+    - View a master timeline of all events extracted from breakdowns.
+5.  **Create Party** (`/party/create`): 
     - Create a new **Individual** or **Organization**.
     - Returns a unique Party ID (UUID).
-4.  **Create Relationship** (`/party/relationship/create`): 
+6.  **Create Relationship** (`/party/relationship/create`): 
     - Connect two Parties using their IDs.
     - Select relationship type (e.g., Employment, Membership).
     - Set status (Active/Inactive).
-5.  **Delete Party** (`/party/delete`):
+7.  **Delete Party** (`/party/delete`):
     - Delete a Party by ID.
     - **Warning**: Automatically deletes all associated relationships (Cascading Delete).
-6.  **Breakdown Detail** (`/breakdown/{id}`):
+8.  **Breakdown Detail** (`/breakdown/{id}`):
     - View the detailed AI breakdown for a specific source.
     - Displays the raw YAML output for identified parties, locations, and timeline.
 

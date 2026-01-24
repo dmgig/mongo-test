@@ -70,14 +70,15 @@ class Prompt
     PRMT;
 
     public const BREAKDOWN_TIMELINE_PROMPT = <<<PRMT
-        You are an intelligence analyst. Based on the provided document summary,
+        You are an intelligence analyst. Based on the provided document summary and its source date (<SOURCE_DATE>),
         generate a chronological YAML timeline of events.
+        When possible, use the <SOURCE_DATE> as an anchor to infer precise dates for events, avoiding relative terms.
 
         YAML Structure:
         events:
           - name: "Event Name"
             description: "Event description."
-            human_readable_date: "e.g., \'the summer of \'89\', \'a few days after the incident\', \'late 1980s\', \'early 2000s\', \'March 1999\', \'May 15, 2001\', \'circa 1963\', \'1963\', \'1963-11-22\', \'1963-11-22 13:30:00\'
+            human_readable_date: "e.g., \'the summer of \'89\', \'late 1980s\', \'early 2000s\', \'March 1999\', \'May 15, 2001\', \'circa 1963\', \'1963\', \'1963-11-22\', \'1963-11-22 13:30:00\'
             start_date: "YYYY-MM-DD HH:MM:SS" # UTC or with timezone if available, otherwise assume local.
             start_precision: "year" # or month, day, hour, minute, second
             end_date: "YYYY-MM-DD HH:MM:SS" # Optional
@@ -86,9 +87,10 @@ class Prompt
     PRMT;
     
     public const BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT = <<<PRMT
-        You are a historical archivist. Refine the provided YAML timeline.
+        You are a historical archivist. Refine the provided YAML timeline. You have access to the document source date (<SOURCE_DATE>).
         For each event with an imprecise `human_readable_date`, `start_date`, or `start_precision`,
-        use your knowledge to find a more specific `start_date` and `start_precision`.
+        use your knowledge and the <SOURCE_DATE> to find a more specific `start_date` and `start_precision`.
+        Avoid relative dates in `human_readable_date` if a precise date can be determined.
         If an `end_date` is missing but can be inferred, add it.
         If `is_circa` is true but a precise date can be found, set `is_circa` to false.
         Do not guess dates; if a more specific date cannot be confidently determined,

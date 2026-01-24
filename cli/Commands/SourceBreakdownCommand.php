@@ -14,6 +14,7 @@ use App\Domain\Content\ChunkingService;
 use App\Domain\Content\ContentExtractorInterface;
 use App\Domain\Source\SourceId;
 use App\Domain\Source\SourceService;
+use App\Domain\Event\EventRepositoryInterface;
 use League\HTMLToMarkdown\HtmlConverter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -32,6 +33,7 @@ class SourceBreakdownCommand extends Command
         private readonly ContentExtractorInterface $extractor,
         private readonly AiModelInterface $ai,
         private readonly BreakdownRepositoryInterface $breakdownRepo,
+        private readonly EventRepositoryInterface $eventRepo,
         private readonly ChunkingService $chunkingService,
     ) {
         parent::__construct();
@@ -56,243 +58,31 @@ class SourceBreakdownCommand extends Command
         $strategy = $input->getOption("strategy");
 
         $sourceId = SourceId::fromString($id);
-        $verbose = $output->isVerbose();
-        $veryVerbose = $output->isVeryVerbose();
 
         try {
-            // 1. Fetch Source and Extract Content
-            $output->writeln("Fetching and extracting content for Source ID: $id");
             $source = $this->sourceService->getSource($sourceId);
-            $htmlContent = $this->extractor->extractContent($source);
+            $output->writeln("Fetched source: " . $source->url);
 
-            // 2. Convert to Markdown
-            $converter = new HtmlConverter();
-            $markdownContent = $converter->convert($htmlContent);
+            $markdownContent = $this->getMarkdownContent($source);
+            $breakdown = $this->createBreakdownRecord($sourceId, $output);
+            $chunks = $this->getChunks($markdownContent, $chunkLimit, $output);
 
-            // 3. Create Breakdown record
-            $breakdown = Breakdown::create($sourceId);
-            $this->breakdownRepo->save($breakdown);
-            $output->writeln("Created Breakdown record: " . $breakdown->id);
-
-            // 4. Chunk Content
-            $chunks = $this->chunkingService->chunk($markdownContent);
-
-            // Apply chunk limit if set
-            if ($chunkLimit !== null) {
-                $chunks = array_slice($chunks, 0, (int)$chunkLimit);
-                $output->writeln("  (Limited to $chunkLimit chunks by --chunk-limit flag)");
-            }
-
-            $masterSummary = '';
-
-            if ($strategy === self::STRATEGY_GROWING_SUMMARY) {
-                $output->writeln("Processing chunks with growing summary strategy...");
-                $runningSummary = "";
-                foreach ($chunks as $i => $chunk) {
-                    $output->write("  - Processing chunk " . ($i + 1) . "... ");
-                    if ($verbose) {
-                        $output->writeln("");
-                        $output->writeln("    Chunk Length: " . strlen($chunk) . " chars");
-                        $output->writeln("    Preview: " . substr($chunk, 0, 100) . "...");
-                    }
-
-                    $startTime = microtime(true);
-
-                    $prompt = new Prompt(
-                        Prompt::BREAKDOWN_GROWING_SUMMARY_PROMPT,
-                        "## Current Chunk\n\n$chunk\n\n## Running Summary\n\n$runningSummary",
-                        null,
-                        $retry
-                    );
-
-                    if ($veryVerbose) {
-                        $output->writeln("    Prompt: " . (string)$prompt);
-                    }
-
-                    try {
-                        $response = $this->ai->generate($prompt);
-                        $updatedSummary = $response->text;
-
-                        $breakdown->addChunkSummary($updatedSummary); // Store each updated summary
-                        $runningSummary = $updatedSummary; // Update running summary
-                        $this->breakdownRepo->save($breakdown);
-                        $duration = microtime(true) - $startTime;
-                        $output->writeln(sprintf("Done (%.2fs)", $duration));
-
-                        if ($verbose) {
-                            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
-                        }
-                        if ($veryVerbose) {
-                            $output->writeln("    Response: " . $updatedSummary);
-                        }
-                    } catch (AiException $e) {
-                        $output->writeln("<error>Failed: {$e->getMessage()}</error>");
-                        if (!$retry) {
-                            $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
-                        }
-                        throw $e;
-                    }
-                }
-                $masterSummary = $runningSummary; // The last running summary is the master summary
-
-            } elseif ($strategy === self::STRATEGY_QUICK) {
-                // Existing logic for quick strategy
-                // 5. Process Chunks (Generate individual chunk summaries)
-                $output->writeln("Processing " . count($chunks) . " chunks to generate individual summaries (quick strategy)...");
-                foreach ($chunks as $i => $chunk) {
-                    $output->write("  - Processing chunk " . ($i + 1) . "... ");
-                    if ($verbose) {
-                         $output->writeln("");
-                         $output->writeln("    Chunk Length: " . strlen($chunk) . " chars");
-                         $output->writeln("    Preview: " . substr($chunk, 0, 100) . "...");
-                    }
-                    
-                    $startTime = microtime(true);
-
-                    $prompt = new Prompt(
-                        Prompt::BREAKDOWN_SUMMARY_PROMPT,
-                        "## Current Chunk\n\n$chunk",
-                        null,
-                        $retry
-                    );
-
-                    if ($veryVerbose) {
-                         $output->writeln("    Prompt: " . (string)$prompt);
-                    }
-
-                    try {
-                        $response = $this->ai->generate($prompt);
-                        $chunkSummary = $response->text;
-                        
-                        $breakdown->addChunkSummary($chunkSummary);
-                        $this->breakdownRepo->save($breakdown);
-                        $duration = microtime(true) - $startTime;
-                        $output->writeln(sprintf("Done (%.2fs)", $duration));
-                        
-                        if ($verbose) {
-                            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
-                        }
-                        if ($veryVerbose) {
-                            $output->writeln("    Response: " . $chunkSummary);
-                        }
-                    } catch (AiException $e) {
-                        $output->writeln("<error>Failed: {$e->getMessage()}</error>");
-                        if (!$retry) {
-                            $output->writeln("<info>Tip: Use --retry to automatically retry transient errors.</info>");
-                        }
-                        throw $e;
-                    }
-                }
-
-                // 6. Generate Master Summary
-                $output->write("Generating master summary from chunk summaries... ");
-                $startTime = microtime(true);
-                $masterSummaryPrompt = new Prompt(
-                    Prompt::BREAKDOWN_MASTER_SUMMARY_PROMPT,
-                    implode("\n\n", $breakdown->chunkSummaries),
-                    null,
-                    $retry
-                );
-                if ($veryVerbose) {
-                     $output->writeln("    Prompt: " . (string)$masterSummaryPrompt);
-                }
-                $masterSummaryResponse = $this->ai->generate($masterSummaryPrompt);
-                $masterSummary = $masterSummaryResponse->text;
-                $duration = microtime(true) - $startTime;
-                $output->writeln(sprintf("Done (%.2fs)", $duration));
-                if ($verbose) {
-                     $output->writeln("    Tokens: {$masterSummaryResponse->inputTokens} in / {$masterSummaryResponse->outputTokens} out");
-                }
-                if ($veryVerbose) {
-                     $output->writeln("    Response: " . $masterSummary);
-                }
-            } else {
-                throw new \InvalidArgumentException("Unknown breakdown strategy: " . $strategy);
-            }
-            
+            $masterSummary = $this->generateMasterSummary($chunks, $strategy, $breakdown, $input, $output);
             $breakdown->updateMasterSummary($masterSummary);
             $this->breakdownRepo->save($breakdown);
 
-            // 7. Parties Analysis
-            $output->write("Generating parties analysis... ");
-            $startTime = microtime(true);
+            $partiesResult = $this->analyzeParties($masterSummary, $retry, $output);
+            $breakdown->setPartiesYaml($this->stripYamlFences($partiesResult));
 
-            $partiesPrompt = new Prompt(
-                Prompt::BREAKDOWN_PARTIES_PROMPT,
-                $breakdown->summary, // Use master summary
-                null,
-                $retry
-            );
-            $partiesResponse = $this->ai->generate($partiesPrompt);
-            $partiesResult = $partiesResponse->text; // Keep raw for display
-            $breakdown->setPartiesYaml($this->stripYamlFences($partiesResult)); // Store stripped version
-            $duration = microtime(true) - $startTime;
-            $output->writeln(sprintf("Done (%.2fs)", $duration));
-            if ($verbose) {
-                 $output->writeln("    Tokens: {$partiesResponse->inputTokens} in / {$partiesResponse->outputTokens} out");
-            }
+            $locationsResult = $this->analyzeLocations($masterSummary, $retry, $output);
+            $breakdown->setLocationsYaml($this->stripYamlFences($locationsResult));
 
+            $timelineResult = $this->analyzeTimeline($masterSummary, $source->accessedAt, $retry, $output);
+            $breakdown->setTimelineYaml($this->stripYamlFences($timelineResult));
 
-            // 8. Locations Analysis
-            $output->write("Generating locations analysis... ");
-            $startTime = microtime(true);
-            $locationsPrompt = new Prompt(
-                Prompt::BREAKDOWN_LOCATIONS_PROMPT,
-                $breakdown->summary, // Use master summary
-                null,
-                $retry
-            );
-            $locationsResponse = $this->ai->generate($locationsPrompt);
-            $locationsResult = $locationsResponse->text; // Keep raw for display
-            $breakdown->setLocationsYaml($this->stripYamlFences($locationsResult)); // Store stripped version
-            $duration = microtime(true) - $startTime;
-            $output->writeln(sprintf("Done (%.2fs)", $duration));
-            if ($verbose) {
-                 $output->writeln("    Tokens: {$locationsResponse->inputTokens} in / {$locationsResponse->outputTokens} out");
-            }
-
-
-            // 9. Timeline Analysis
-            $output->write("Generating timeline analysis... ");
-            $startTime = microtime(true);
-            $timelinePrompt = new Prompt(
-                Prompt::BREAKDOWN_TIMELINE_PROMPT,
-                $breakdown->summary, // Use master summary
-                null,
-                $retry
-            );
-            $timelineResponse = $this->ai->generate($timelinePrompt);
-            $timelineResult = $timelineResponse->text; // Keep raw for display
-            $breakdown->setTimelineYaml($this->stripYamlFences($timelineResult)); // Store stripped version
-            $duration = microtime(true) - $startTime;
-            $output->writeln(sprintf("Done (%.2fs)", $duration));
-            if ($verbose) {
-                 $output->writeln("    Tokens: {$timelineResponse->inputTokens} in / {$timelineResponse->outputTokens} out");
-            }
-
-
-            // 10. Improve Dating of Events
-            $output->write("Attempting to date undated events... ");
-            $startTime = microtime(true);
-            $datingPrompt = new Prompt(
-                Prompt::BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT,
-                $timelineResult, // Use the raw timeline result for dating
-                null,
-                $retry
-            );
-            $datedResponse = $this->ai->generate($datingPrompt);
-            $datedTimeline = $datedResponse->text; // Keep raw for display
-            $breakdown->setTimelineYaml($this->stripYamlFences($datedTimeline)); // Update with dated timeline, stripped
-            $duration = microtime(true) - $startTime;
-            $output->writeln(sprintf("Done (%.2fs)", $duration));
-            if ($verbose) {
-                 $output->writeln("    Tokens: {$datedResponse->inputTokens} in / {$datedResponse->outputTokens} out");
-            }
-
+            $datedTimeline = $this->improveTimelineDates($timelineResult, $source->accessedAt, $retry, $output);
+            $breakdown->setTimelineYaml($this->stripYamlFences($datedTimeline));
             
-            // NOTE: We are no longer using BreakdownResult::fromYaml directly for display, but it still represents the structured data.
-            // We will pass the *stripped* YAMLs for parsing into the BreakdownResult object for consistency with other parts of the system
-            // that might rely on the structured result.
             $result = BreakdownResult::fromYaml(
                 $this->stripYamlFences($partiesResult),
                 $this->stripYamlFences($locationsResult),
@@ -301,15 +91,8 @@ class SourceBreakdownCommand extends Command
             $breakdown->setResult($result);
             $this->breakdownRepo->save($breakdown);
 
-            // 11. Output
-            $output->writeln("--- Final Result ---");
-            // Simple output for now, the real result is structured in the DB
-            $output->writeln("Parties: " . count($result->parties));
-            $output->writeln("Locations: " . count($result->locations));
-            $output->writeln("Events: " . count($result->timeline));
-            $output->writeln("--------------------");
-            $output->writeln("Breakdown complete. You can review the breakdown at any time using the ID: " . $breakdown->id);
-
+            $this->saveEvents($result, $output);
+            $this->outputFinalResult($result, $breakdown, $output);
 
             return Command::SUCCESS;
         } catch (\Exception $e) {
@@ -318,12 +101,170 @@ class SourceBreakdownCommand extends Command
         }
     }
 
+    private function getMarkdownContent(\App\Domain\Source\Source $source): string
+    {
+        $htmlContent = $this->extractor->extractContent($source);
+        $converter = new HtmlConverter();
+        return $converter->convert($htmlContent);
+    }
+
+    private function createBreakdownRecord(SourceId $sourceId, OutputInterface $output): Breakdown
+    {
+        $breakdown = Breakdown::create($sourceId);
+        $this->breakdownRepo->save($breakdown);
+        $output->writeln("Created Breakdown record: " . $breakdown->id);
+        return $breakdown;
+    }
+
+    private function getChunks(string $markdownContent, ?string $chunkLimit, OutputInterface $output): array
+    {
+        $chunks = $this->chunkingService->chunk($markdownContent);
+        if ($chunkLimit !== null) {
+            $chunks = array_slice($chunks, 0, (int)$chunkLimit);
+            $output->writeln("  (Limited to $chunkLimit chunks by --chunk-limit flag)");
+        }
+        return $chunks;
+    }
+
+    private function generateMasterSummary(array $chunks, string $strategy, Breakdown $breakdown, InputInterface $input, OutputInterface $output): string
+    {
+        if ($strategy === self::STRATEGY_GROWING_SUMMARY) {
+            return $this->generateGrowingSummary($chunks, $breakdown, $input, $output);
+        } elseif ($strategy === self::STRATEGY_QUICK) {
+            return $this->generateQuickSummary($chunks, $breakdown, $input, $output);
+        } else {
+            throw new \InvalidArgumentException("Unknown breakdown strategy: " . $strategy);
+        }
+    }
+
+    private function generateGrowingSummary(array $chunks, Breakdown $breakdown, InputInterface $input, OutputInterface $output): string
+    {
+        $output->writeln("Processing chunks with growing summary strategy...");
+        $runningSummary = "";
+        foreach ($chunks as $i => $chunk) {
+            $output->write("  - Processing chunk " . ($i + 1) . "... ");
+            
+            $prompt = new Prompt(
+                Prompt::BREAKDOWN_GROWING_SUMMARY_PROMPT,
+                "## Current Chunk\n\n$chunk\n\n## Running Summary\n\n$runningSummary",
+                null,
+                (bool)$input->getOption("retry")
+            );
+
+            $response = $this->ai->generate($prompt);
+            $updatedSummary = $response->text;
+
+            $breakdown->addChunkSummary($updatedSummary);
+            $runningSummary = $updatedSummary;
+            $this->breakdownRepo->save($breakdown);
+            $output->writeln("Done");
+        }
+        return $runningSummary;
+    }
+
+    private function generateQuickSummary(array $chunks, Breakdown $breakdown, InputInterface $input, OutputInterface $output): string
+    {
+        $output->writeln("Processing " . count($chunks) . " chunks to generate individual summaries (quick strategy)...");
+        foreach ($chunks as $i => $chunk) {
+            $output->write("  - Processing chunk " . ($i + 1) . "... ");
+
+            $prompt = new Prompt(
+                Prompt::BREAKDOWN_SUMMARY_PROMPT,
+                "## Current Chunk\n\n$chunk",
+                null,
+                (bool)$input->getOption("retry")
+            );
+
+            $response = $this->ai->generate($prompt);
+            $chunkSummary = $response->text;
+            
+            $breakdown->addChunkSummary($chunkSummary);
+            $this->breakdownRepo->save($breakdown);
+            $output->writeln("Done");
+        }
+
+        $output->write("Generating master summary from chunk summaries... ");
+        $masterSummaryPrompt = new Prompt(
+            Prompt::BREAKDOWN_MASTER_SUMMARY_PROMPT,
+            implode("\n\n", $breakdown->chunkSummaries),
+            null,
+            (bool)$input->getOption("retry")
+        );
+        $masterSummaryResponse = $this->ai->generate($masterSummaryPrompt);
+        $masterSummary = $masterSummaryResponse->text;
+        $output->writeln("Done");
+
+        return $masterSummary;
+    }
+    
+    private function analyzeParties(string $summary, bool $retry, OutputInterface $output): string
+    {
+        $output->write("Generating parties analysis... ");
+        $prompt = new Prompt(Prompt::BREAKDOWN_PARTIES_PROMPT, $summary, null, $retry);
+        $response = $this->ai->generate($prompt);
+        $output->writeln("Done");
+        return $response->text;
+    }
+    
+    private function analyzeLocations(string $summary, bool $retry, OutputInterface $output): string
+    {
+        $output->write("Generating locations analysis... ");
+        $prompt = new Prompt(Prompt::BREAKDOWN_LOCATIONS_PROMPT, $summary, null, $retry);
+        $response = $this->ai->generate($prompt);
+        $output->writeln("Done");
+        return $response->text;
+    }
+
+    private function analyzeTimeline(string $summary, \DateTimeImmutable $sourceDate, bool $retry, OutputInterface $output): string
+    {
+        $output->write("Generating timeline analysis... ");
+        $prompt = new Prompt(
+            Prompt::BREAKDOWN_TIMELINE_PROMPT,
+            $summary . "\n\n<SOURCE_DATE>" . $sourceDate->format(\DateTimeInterface::ATOM) . "</SOURCE_DATE>",
+            null,
+            $retry
+        );
+        $response = $this->ai->generate($prompt);
+        $output->writeln("Done");
+        return $response->text;
+    }
+
+    private function improveTimelineDates(string $timelineResult, \DateTimeImmutable $sourceDate, bool $retry, OutputInterface $output): string
+    {
+        $output->write("Attempting to date undated events... ");
+        $prompt = new Prompt(
+            Prompt::BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT,
+            $timelineResult . "\n\n<SOURCE_DATE>" . $sourceDate->format(\DateTimeInterface::ATOM) . "</SOURCE_DATE>",
+            null,
+            $retry
+        );
+        $response = $this->ai->generate($prompt);
+        $output->writeln("Done");
+        return $response->text;
+    }
+    
+    private function saveEvents(BreakdownResult $result, OutputInterface $output): void
+    {
+        foreach ($result->timeline as $event) {
+            $this->eventRepo->save($event);
+        }
+        $output->writeln("Saved " . count($result->timeline) . " events to the master timeline.");
+    }
+
+    private function outputFinalResult(BreakdownResult $result, Breakdown $breakdown, OutputInterface $output): void
+    {
+        $output->writeln("--- Final Result ---");
+        $output->writeln("Parties: " . count($result->parties));
+        $output->writeln("Locations: " . count($result->locations));
+        $output->writeln("Events: " . count($result->timeline));
+        $output->writeln("---------------------");
+        $output->writeln("Breakdown complete. You can review the breakdown at any time using the ID: " . $breakdown->id);
+    }
+    
     private function stripYamlFences(string $text): string
     {
-        // Remove '```yaml' at the beginning and '```' at the end
-        $text = preg_replace('/^```yaml\s*\n?/i', '', $text);
-        $text = preg_replace('/
-?```\s*$/', '', $text);
+        $text = preg_replace("/^```yaml\s*\n?/i", "", $text);
+        $text = preg_replace("/\n?```\s*$/", "", $text);
         return trim($text);
     }
 }

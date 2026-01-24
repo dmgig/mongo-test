@@ -81,6 +81,7 @@ class BreakdownResult
                 }
 
                 $timeline[] = new Event(
+                    null,
                     $e["name"],
                     $e["description"],
                     $startDate,
@@ -94,9 +95,6 @@ class BreakdownResult
     
     public function toArray(): array {
         return [
-            // NOTE: Using `name` and `disambiguationDescription` as the primary description fields for display
-            // This avoids passing the entire Party object to the view and simplifies display logic.
-            // If a full object rehydration is needed, the `fromArray` method will handle it.
             'parties' => array_map(fn(Party $p) => $p->toArray(), $this->parties),
             'locations' => $this->locations,
             'timeline' => array_map(fn(Event $e) => [ // We need a toArray on Event/FuzzyDate ideally, but doing inline for now
@@ -161,6 +159,7 @@ class BreakdownResult
             };
 
             $timeline[] = new Event(
+                null,
                 $eData["name"],
                 $eData["description"],
                 $startDate,

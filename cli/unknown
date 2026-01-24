@@ -14,6 +14,7 @@ use App\Domain\Content\ChunkingService;
 use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoSourceRepository;
 use App\Infrastructure\Mongo\MongoBreakdownRepository;
+use App\Infrastructure\Mongo\MongoEventRepository;
 use App\Infrastructure\Html\HtmlStructureService;
 use App\Infrastructure\Ai\Gemini\GeminiAdapter;
 use Symfony\Component\Console\Application;
@@ -30,6 +31,7 @@ $connector = MongoConnector::fromEnvironment();
 $sourceRepo = new MongoSourceRepository($connector);
 $sourceService = new SourceService($sourceRepo);
 $breakdownRepo = new MongoBreakdownRepository($connector);
+$eventRepo = new MongoEventRepository($connector);
 
 // AI Setup
 $apiKey = $_ENV['GEMINI_API_KEY'] ?? getenv('GEMINI_API_KEY');
@@ -55,6 +57,6 @@ $extractors = [
 $application->add(new CreateSourceCommand($sourceService));
 $application->add(new ExtractContentCommand($sourceService, $extractors));
 $application->add(new ListAiModelsCommand($geminiClient));
-$application->add(new SourceBreakdownCommand($sourceService, $readabilityExtractor, $aiAdapter, $breakdownRepo, $chunkingService));
+$application->add(new SourceBreakdownCommand($sourceService, $readabilityExtractor, $aiAdapter, $breakdownRepo, $eventRepo, $chunkingService));
 
 $application->run();
