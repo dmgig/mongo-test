@@ -157,14 +157,28 @@ $app->get('/party/detail/{id}', function (Request $request, Response $response, 
 $app->get('/parties', function (Request $request, Response $response) {
     try {
         $connector = MongoConnector::fromEnvironment();
-        $db = $connector->database();
-        $collection = $db->selectCollection('submissions');
-        // Fetch parties, sorted by newest first
-        $cursor = $collection->find([], [
-            'limit' => 100,
-            'sort' => ['created_at' => -1]
-        ]);
-        $parties = $cursor->toArray();
+        $partyRepo = new MongoPartyRepository($connector);
+        
+        $parties = $partyRepo->findAll();
+        
+        // Convert party objects to array for the template if needed, or update template to use objects.
+        // Looking at templates/party_list.php, it expects an array of arrays (like MongoDB result).
+        // Let's adapt it to use objects, or map here.
+        // Based on previous reads of party_list.php, it iterates and accesses via array index (e.g. $party['_id']).
+        // But `findAll()` now returns `Party` objects.
+        // We should update the template or map here. Updating the template is cleaner but let's map for minimal changes first.
+        // Wait, I updated `MongoPartyRepository::findAll` to return `Party` objects.
+        // The previous implementation returned raw arrays.
+        // I need to check `templates/party_list.php`.
+        // Let's map to array here to be safe and compatible with existing template if it wasn't updated.
+        
+        $partiesArray = array_map(fn(Party $p) => $p->toArray(), $parties);
+        
+        // The `toArray` method adds `_id` back now.
+        
+        // Pass to template as `parties`
+        $parties = $partiesArray;
+
     } catch (\Exception $e) {
         $parties = [];
         // Ideally log this error
@@ -198,11 +212,10 @@ $app->post('/party/create', function (Request $request, Response $response) {
             $party = Party::create($name, PartyType::from($typeStr));
             
             $connector = MongoConnector::fromEnvironment();
-            $db = $connector->database();
-            $collection = $db->selectCollection('submissions'); // Keeping 'submissions' as per earlier tasks
-            $collection->insertOne($party->toArray());
+            $partyRepo = new MongoPartyRepository($connector);
+            $partyRepo->save($party);
             
-            $message = "Created Party with ID: " . $party->id;
+            $message = "Created Party with ID: " . $party->id->value;
         } catch (\Exception $e) {
             $message = "Error: " . $e->getMessage();
         }
@@ -251,11 +264,10 @@ $app->post('/party/relationship/create', function (Request $request, Response $r
             }
 
             $connector = MongoConnector::fromEnvironment();
-            $db = $connector->database();
-            $collection = $db->selectCollection('relationships');
-            $collection->insertOne($rel->toArray());
+            $relRepo = new MongoPartyRelationshipRepository($connector);
+            $relRepo->save($rel);
             
-            $message = "Created Relationship with ID: " . $rel->id;
+            $message = "Created Relationship with ID: " . $rel->id->value;
         } catch (\Exception $e) {
             $message = "Error: " . $e->getMessage();
         }
@@ -487,16 +499,10 @@ $app->group('/api/v1', function ($group) {
 
             // Update fields if provided
             if (isset($data['name'])) {
+                // Party name is mutable via constructor in a new instance or we need a rename method.
+                // But wait, Party class defines name as public string.
                 $party->name = $data['name'];
             }
-            // Note: In a strict DDD approach, we might not allow changing type, or would use a specific method.
-            // But for this CRUD API, we'll allow it if valid.
-            // Ideally Party entity should have methods like rename().
-            // Since Party properties are readonly (except name in our definition? check definition), we might need to recreate or update.
-            // Checking Party definition...
-            // Party class has: public string $name, public readonly PartyType $type.
-            // So we can update name directly. Type is readonly. To change type we'd strictly need a new object or a method that clones.
-            // For now, let's support Name update only as Type is architectural.
             
             $partyRepo->save($party);
 

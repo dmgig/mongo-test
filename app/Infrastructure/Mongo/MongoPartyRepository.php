@@ -67,7 +67,7 @@ class MongoPartyRepository implements PartyRepositoryInterface
             $data["name"],
             PartyType::from($data["type"]),
             \DateTimeImmutable::createFromMutable($createdAt),
-            $data["aliases"] ?? null,
+            isset($data["aliases"]) ? (array)$data["aliases"] : null,
             $data["disambiguationDescription"] ?? null
         );
     }
@@ -90,7 +90,7 @@ class MongoPartyRepository implements PartyRepositoryInterface
                 $data["name"],
                 PartyType::from($data["type"]),
                 \DateTimeImmutable::createFromMutable($createdAt),
-                $data["aliases"] ?? null,
+                isset($data["aliases"]) ? (array)$data["aliases"] : null,
                 $data["disambiguationDescription"] ?? null
             );
         }
@@ -116,7 +116,7 @@ class MongoPartyRepository implements PartyRepositoryInterface
                 $data["name"],
                 PartyType::from($data["type"]),
                 \DateTimeImmutable::createFromMutable($createdAt),
-                $data["aliases"] ?? null,
+                isset($data["aliases"]) ? (array)$data["aliases"] : null,
                 $data["disambiguationDescription"] ?? null
             );
         }
@@ -142,7 +142,7 @@ class MongoPartyRepository implements PartyRepositoryInterface
             $data["name"],
             PartyType::from($data["type"]),
             \DateTimeImmutable::createFromMutable($createdAt),
-            $data["aliases"] ?? null,
+            isset($data["aliases"]) ? (array)$data["aliases"] : null,
             $data["disambiguationDescription"] ?? null
         );
     }
