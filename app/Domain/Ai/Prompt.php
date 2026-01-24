@@ -48,7 +48,8 @@ class Prompt
         Descriptions should be concise and for disambiguation only (e.g., "(US Senator)", "(Electrician)").
         
         IMPORTANT: Ensure all strings, especially names and descriptions containing special characters
-        like double quotes, are properly escaped or enclosed in single quotes as per YAML specifications.
+        like single or double quotes, are properly escaped or enclosed in double quotes (for single quotes)
+        or single quotes (for double quotes) as per YAML specifications.
 
         YAML Structure:
         people:
