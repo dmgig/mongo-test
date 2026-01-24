@@ -19,4 +19,6 @@ interface PartyRepositoryInterface
      * @return Party[]
      */
     public function findAll(): array;
+
+    public function findByNameAndType(string $name, PartyType $type): ?Party;
 }

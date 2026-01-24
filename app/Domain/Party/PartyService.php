@@ -69,4 +69,30 @@ class PartyService
             'relatedParties' => $relatedParties,
         ];
     }
+
+    public function saveOrUpdateParty(Party $newParty): Party
+    {
+        // Attempt to find an existing party with the same name and type
+        $existingParty = $this->partyRepository->findByNameAndType($newParty->name, $newParty->type);
+
+        if ($existingParty) {
+            // Update existing party with new information (e.g., aliases, disambiguationDescription)
+            // For simplicity, we'll merge non-null new data into existing.
+            if ($newParty->aliases !== null) {
+                if ($existingParty->aliases === null) {
+                    $existingParty->aliases = [];
+                }
+                $existingParty->aliases = array_unique(array_merge($existingParty->aliases, $newParty->aliases));
+            }
+            if ($newParty->disambiguationDescription !== null && $existingParty->disambiguationDescription === null) {
+                $existingParty->disambiguationDescription = $newParty->disambiguationDescription;
+            }
+            $this->partyRepository->save($existingParty);
+            return $existingParty;
+        } else {
+            // If no existing party, save the new one
+            $this->partyRepository->save($newParty);
+            return $newParty;
+        }
+    }
 }

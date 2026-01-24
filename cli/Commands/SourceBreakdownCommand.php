@@ -16,6 +16,7 @@ use App\Domain\Source\SourceId;
 use App\Domain\Source\SourceService;
 use App\Domain\Event\EventRepositoryInterface;
 use App\Domain\Event\EmbeddingService;
+use App\Domain\Party\PartyService;
 use League\HTMLToMarkdown\HtmlConverter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -26,8 +27,10 @@ use Symfony\Component\Console\Output\OutputInterface as ConsoleOutputInterface;
 
 class SourceBreakdownCommand extends Command
 {
-    private const STRATEGY_QUICK = 'quick';
-    private const STRATEGY_GROWING_SUMMARY = 'growing-summary';
+    private const STRATEGY_QUICK = 
+'quick';
+    private const STRATEGY_GROWING_SUMMARY = 
+'growing-summary';
 
     public function __construct(
         private readonly SourceService $sourceService,
@@ -36,7 +39,8 @@ class SourceBreakdownCommand extends Command
         private readonly BreakdownRepositoryInterface $breakdownRepo,
         private readonly EventRepositoryInterface $eventRepo,
         private readonly ChunkingService $chunkingService,
-        private readonly EmbeddingService $embeddingService
+        private readonly EmbeddingService $embeddingService,
+        private readonly PartyService $partyService
     ) {
         parent::__construct();
     }
@@ -94,6 +98,7 @@ class SourceBreakdownCommand extends Command
             $this->breakdownRepo->save($breakdown);
 
             $this->saveEvents($result, $output);
+            $this->saveParties($result, $output);
             $this->outputFinalResult($result, $breakdown, $output);
 
             return Command::SUCCESS;
@@ -292,7 +297,7 @@ class SourceBreakdownCommand extends Command
             $similarEvent = $this->eventRepo->findSimilar($embedding);
             
             if ($similarEvent) {
-                // Merging logic can be implemented here. For now, we'll just skip adding duplicates.
+                // Merging logic can be implemented here. For now, we\"ll just skip adding duplicates.
                 $output->writeln("Skipping duplicate event: " . $event->name);
                 continue;
             }
@@ -300,6 +305,19 @@ class SourceBreakdownCommand extends Command
             $this->eventRepo->save($event);
         }
         $output->writeln("Saved " . count($result->timeline) . " events to the master timeline.");
+    }
+
+    private function saveParties(BreakdownResult $result, OutputInterface $output): void
+    {
+        foreach ($result->parties as $party) {
+            $savedParty = $this->partyService->saveOrUpdateParty($party);
+            if ($savedParty->id->value !== $party->id->value) {
+                $output->writeln("Updated existing party: " . $savedParty->name . " with ID: " . $savedParty->id);
+            } else {
+                $output->writeln("Saved new party: " . $savedParty->name . " with ID: " . $savedParty->id);
+            }
+        }
+        $output->writeln("Processed " . count($result->parties) . " parties for the master list.");
     }
 
     private function outputFinalResult(BreakdownResult $result, Breakdown $breakdown, OutputInterface $output): void

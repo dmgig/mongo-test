@@ -73,7 +73,7 @@ A Command Line Interface tool is available for managing the application.
   ```bash
   cli/unknown sources:create https://example.com
   ```
-- **Source Breakdown**: Generates AI breakdown for a source, storing raw YAML results.
+- **Source Breakdown**: Generates AI breakdown for a source, storing raw YAML results, and saving identified parties and events to their respective master lists with deduplication.
   ```bash
   cli/unknown source:breakdown <source-id> [--chunk-limit <limit>] [--retry] [--strategy <quick|growing-summary>]
   ```

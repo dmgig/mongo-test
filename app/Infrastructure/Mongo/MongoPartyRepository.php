@@ -21,59 +21,63 @@ class MongoPartyRepository implements PartyRepositoryInterface
 
     public function save(Party $party): void
     {
-        $collection = $this->db->selectCollection('submissions');
+        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
         $collection->updateOne(
-            ['_id' => $party->id->value],
-            ['$set' => $party->toArray()],
-            ['upsert' => true]
+            ["_id" => $party->id->value],
+            ["$set" => $party->toArray()],
+            ["upsert" => true]
         );
     }
 
     public function delete(PartyId $id): void
     {
-        $collection = $this->db->selectCollection('submissions');
-        $collection->deleteOne(['_id' => $id->value]);
+        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $collection->deleteOne(["_id" => $id->value]);
     }
 
     public function findById(PartyId $id): ?Party
     {
-        $collection = $this->db->selectCollection('submissions');
-        $data = $collection->findOne(['_id' => $id->value]);
+        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $data = $collection->findOne(["_id" => $id->value]);
         
         if (!$data) {
             return null;
         }
 
         /** @var \MongoDB\BSON\UTCDateTime $createdAtBson */
-        $createdAtBson = $data['created_at'];
+        $createdAtBson = $data["created_at"];
         $createdAt = $createdAtBson->toDateTime();
         
-        return new Party(
-            PartyId::fromString($data['_id']),
-            $data['name'],
-            PartyType::from($data['type']),
-            \DateTimeImmutable::createFromMutable($createdAt)
+        return Party::reconstitute(
+            PartyId::fromString($data["_id"]),
+            $data["name"],
+            PartyType::from($data["type"]),
+            \DateTimeImmutable::createFromMutable($createdAt),
+            $data["aliases"] ?? null,
+            $data["disambiguationDescription"] ?? null
         );
     }
 
     public function findByIds(array $ids): array
     {
-        $collection = $this->db->selectCollection('submissions');
+        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
         $stringIds = array_map(fn(PartyId $id) => $id->value, $ids);
         
-        $cursor = $collection->find(['_id' => ['$in' => $stringIds]]);
+        $cursor = $collection->find(["_id" => ["$in" => $stringIds]]);
         
         $parties = [];
         foreach ($cursor as $data) {
             /** @var \MongoDB\BSON\UTCDateTime $createdAtBson */
-            $createdAtBson = $data['created_at'];
+            $createdAtBson = $data["created_at"];
             $createdAt = $createdAtBson->toDateTime();
             
-            $parties[] = new Party(
-                PartyId::fromString((string)$data['_id']),
-                $data['name'],
-                PartyType::from($data['type']),
-                \DateTimeImmutable::createFromMutable($createdAt)
+            $parties[] = Party::reconstitute(
+                PartyId::fromString((string)$data["_id"]),
+                $data["name"],
+                PartyType::from($data["type"]),
+                \DateTimeImmutable::createFromMutable($createdAt),
+                $data["aliases"] ?? null,
+                $data["disambiguationDescription"] ?? null
             );
         }
         
@@ -82,25 +86,50 @@ class MongoPartyRepository implements PartyRepositoryInterface
 
     public function findAll(): array
     {
-        $collection = $this->db->selectCollection('submissions');
+        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
         $cursor = $collection->find([], [
-            'sort' => ['created_at' => -1]
+            "sort" => ["created_at" => -1]
         ]);
         
         $parties = [];
         foreach ($cursor as $data) {
             /** @var \MongoDB\BSON\UTCDateTime $createdAtBson */
-            $createdAtBson = $data['created_at'];
+            $createdAtBson = $data["created_at"];
             $createdAt = $createdAtBson->toDateTime();
             
-            $parties[] = new Party(
-                PartyId::fromString((string)$data['_id']),
-                $data['name'],
-                PartyType::from($data['type']),
-                \DateTimeImmutable::createFromMutable($createdAt)
+            $parties[] = Party::reconstitute(
+                PartyId::fromString((string)$data["_id"]),
+                $data["name"],
+                PartyType::from($data["type"]),
+                \DateTimeImmutable::createFromMutable($createdAt),
+                $data["aliases"] ?? null,
+                $data["disambiguationDescription"] ?? null
             );
         }
         
         return $parties;
+    }
+
+    public function findByNameAndType(string $name, PartyType $type): ?Party
+    {
+        $collection = $this->db->selectCollection("parties");
+        $data = $collection->findOne(["name" => $name, "type" => $type->value]);
+
+        if (!$data) {
+            return null;
+        }
+        
+        /** @var \MongoDB\BSON\UTCDateTime $createdAtBson */
+        $createdAtBson = $data["created_at"];
+        $createdAt = $createdAtBson->toDateTime();
+
+        return Party::reconstitute(
+            PartyId::fromString($data["_id"]),
+            $data["name"],
+            PartyType::from($data["type"]),
+            \DateTimeImmutable::createFromMutable($createdAt),
+            $data["aliases"] ?? null,
+            $data["disambiguationDescription"] ?? null
+        );
     }
 }

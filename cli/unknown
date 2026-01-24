@@ -15,9 +15,12 @@ use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoSourceRepository;
 use App\Infrastructure\Mongo\MongoBreakdownRepository;
 use App\Infrastructure\Mongo\MongoEventRepository;
+use App\Infrastructure\Mongo\MongoPartyRepository;
 use App\Infrastructure\Html\HtmlStructureService;
 use App\Infrastructure\Ai\Gemini\GeminiAdapter;
 use App\Domain\Event\EmbeddingService;
+use App\Domain\Party\PartyService;
+use App\Domain\Party\PartyRelationshipRepositoryInterface;
 use Symfony\Component\Console\Application;
 use Dotenv\Dotenv;
 
@@ -33,12 +36,14 @@ $sourceRepo = new MongoSourceRepository($connector);
 $sourceService = new SourceService($sourceRepo);
 $breakdownRepo = new MongoBreakdownRepository($connector);
 $eventRepo = new MongoEventRepository($connector);
+$partyRepo = new MongoPartyRepository($connector);
+$partyRelationshipRepo = new \App\Infrastructure\Mongo\MongoPartyRelationshipRepository($connector);
 
 // AI Setup
-$apiKey = $_ENV['GEMINI_API_KEY'] ?? getenv('GEMINI_API_KEY');
+$apiKey = $_ENV["GEMINI_API_KEY"] ?? getenv("GEMINI_API_KEY");
 if (!$apiKey) {
     echo "Warning: GEMINI_API_KEY not set in " . __DIR__ . "/../.env\n";
-    $apiKey = 'dummy';
+    $apiKey = "dummy";
 }
 $geminiClient = Gemini::client($apiKey);
 $aiAdapter = new GeminiAdapter($geminiClient);
@@ -49,16 +54,17 @@ $aiExtractor = new AiContentExtractor($htmlStructureService, $aiAdapter);
 $readabilityExtractor = new ReadabilityContentExtractor();
 $chunkingService = new ChunkingService();
 $embeddingService = new EmbeddingService($aiAdapter);
+$partyService = new PartyService($partyRepo, $partyRelationshipRepo);
 
 $extractors = [
-    'ai' => $aiExtractor,
-    'readability' => $readabilityExtractor,
+    "ai" => $aiExtractor,
+    "readability" => $readabilityExtractor,
 ];
 
 // Register Commands
 $application->add(new CreateSourceCommand($sourceService));
 $application->add(new ExtractContentCommand($sourceService, $extractors));
 $application->add(new ListAiModelsCommand($geminiClient));
-$application->add(new SourceBreakdownCommand($sourceService, $readabilityExtractor, $aiAdapter, $breakdownRepo, $eventRepo, $chunkingService, $embeddingService));
+$application->add(new SourceBreakdownCommand($sourceService, $readabilityExtractor, $aiAdapter, $breakdownRepo, $eventRepo, $chunkingService, $embeddingService, $partyService));
 
 $application->run();
