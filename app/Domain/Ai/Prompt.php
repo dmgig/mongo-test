@@ -68,7 +68,7 @@ class Prompt
         levels for disambiguation where appropriate.
 
         YAML Structure:
-        locations:
+        locations:m
           - name: "Location Name"
             # ... other inferred details like city, country, coordinates if available and relevant
     PRMT;
@@ -84,9 +84,9 @@ class Prompt
             description: "Event description."
             human_readable_date: "e.g., 'the summer of ''89''', 'late 1980s', 'early 2000s', 'March 1999', 'May 15, 2001', 'circa 1963', '1963', '1963-11-22', '1963-11-22 13:30:00'"
             start_date: "YYYY-MM-DD HH:MM:SS" # UTC or with timezone if available, otherwise assume local.
-            start_precision: "year" # or month, day, hour, minute, second, decade, season
+            start_precision: "year" # or month, day, hour, minute, second, decade, season, quarter
             end_date: "YYYY-MM-DD HH:MM:SS" # Optional
-            end_precision: "year" # Optional, or month, day, hour, minute, second, decade, season
+            end_precision: "year" # Optional, or month, day, hour, minute, second, decade, season, quarter
             is_circa: false # Boolean
     PRMT;
     

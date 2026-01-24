@@ -21,23 +21,36 @@ class MongoPartyRepository implements PartyRepositoryInterface
 
     public function save(Party $party): void
     {
-        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $collection = $this->db->selectCollection("parties");
+
         $collection->updateOne(
             ["_id" => $party->id->value],
-            ["$set" => $party->toArray()],
+            [
+                "$set" => [
+                    "name" => $party->name,
+                    "type" => $party->type->value,
+                    "aliases" => $party->aliases ?? [],
+                    "disambiguationDescription" => $party->disambiguationDescription ?? 
+                    "",
+                    "updated_at" => new \MongoDB\BSON\UTCDateTime((new \DateTimeImmutable())->getTimestamp() * 1000)
+                ],
+                "$setOnInsert" => [
+                    "created_at" => new \MongoDB\BSON\UTCDateTime($party->createdAt->getTimestamp() * 1000)
+                ]
+            ],
             ["upsert" => true]
         );
     }
 
     public function delete(PartyId $id): void
     {
-        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $collection = $this->db->selectCollection("parties");
         $collection->deleteOne(["_id" => $id->value]);
     }
 
     public function findById(PartyId $id): ?Party
     {
-        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $collection = $this->db->selectCollection("parties");
         $data = $collection->findOne(["_id" => $id->value]);
         
         if (!$data) {
@@ -60,7 +73,7 @@ class MongoPartyRepository implements PartyRepositoryInterface
 
     public function findByIds(array $ids): array
     {
-        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $collection = $this->db->selectCollection("parties");
         $stringIds = array_map(fn(PartyId $id) => $id->value, $ids);
         
         $cursor = $collection->find(["_id" => ["$in" => $stringIds]]);
@@ -86,7 +99,7 @@ class MongoPartyRepository implements PartyRepositoryInterface
 
     public function findAll(): array
     {
-        $collection = $this->db->selectCollection("parties"); // Changed from 'submissions'
+        $collection = $this->db->selectCollection("parties");
         $cursor = $collection->find([], [
             "sort" => ["created_at" => -1]
         ]);

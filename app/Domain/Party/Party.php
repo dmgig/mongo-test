@@ -52,10 +52,10 @@ final class Party
     public function toArray(): array
     {
         return [
-            '_id' => $this->id->value,
+            '_id' => $this->id->value, // Re-added: Needed for serialization in BreakdownResult
             'name' => $this->name,
             'type' => $this->type->value,
-            'created_at' => new \MongoDB\BSON\UTCDateTime($this->createdAt),
+            'created_at' => new \MongoDB\BSON\UTCDateTime($this->createdAt->getTimestamp() * 1000),
             'aliases' => $this->aliases,
             'disambiguationDescription' => $this->disambiguationDescription,
         ];
