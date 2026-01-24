@@ -23,21 +23,22 @@ class MongoPartyRepository implements PartyRepositoryInterface
     {
         $collection = $this->db->selectCollection("parties");
 
+        $updateDocument = [];
+        $updateDocument['$set'] = [
+            "name" => $party->name,
+            "type" => $party->type->value,
+            "aliases" => $party->aliases ?? [],
+            "disambiguationDescription" => $party->disambiguationDescription ?? "",
+            "updated_at" => new \MongoDB\BSON\UTCDateTime((new \DateTimeImmutable())->getTimestamp() * 1000)
+        ];
+        
+        $updateDocument['$setOnInsert'] = [
+            "created_at" => new \MongoDB\BSON\UTCDateTime($party->createdAt->getTimestamp() * 1000)
+        ];
+        
         $collection->updateOne(
             ["_id" => $party->id->value],
-            [
-                "$set" => [
-                    "name" => $party->name,
-                    "type" => $party->type->value,
-                    "aliases" => $party->aliases ?? [],
-                    "disambiguationDescription" => $party->disambiguationDescription ?? 
-                    "",
-                    "updated_at" => new \MongoDB\BSON\UTCDateTime((new \DateTimeImmutable())->getTimestamp() * 1000)
-                ],
-                "$setOnInsert" => [
-                    "created_at" => new \MongoDB\BSON\UTCDateTime($party->createdAt->getTimestamp() * 1000)
-                ]
-            ],
+            $updateDocument,
             ["upsert" => true]
         );
     }
