@@ -14,4 +14,5 @@ enum DatePrecision: string
     case SECOND = 'second';
     case DECADE = 'decade';
     case SEASON = 'season';
+    case QUARTER = 'quarter';
 }
