@@ -83,9 +83,9 @@ class Prompt
             description: "Event description."
             human_readable_date: "e.g., 'the summer of ''89''', 'a few days after the incident', 'late 1980s', 'early 2000s', 'March 1999', 'May 15, 2001', 'circa 1963', '1963', '1963-11-22', '1963-11-22 13:30:00'"
             start_date: "YYYY-MM-DD HH:MM:SS" # UTC or with timezone if available, otherwise assume local.
-            start_precision: "year" # or month, day, hour, minute, second
+            start_precision: "year" # or month, day, hour, minute, second, decade
             end_date: "YYYY-MM-DD HH:MM:SS" # Optional
-            end_precision: "year" # Optional, or month, day, hour, minute, second
+            end_precision: "year" # Optional, or month, day, hour, minute, second, decade
             is_circa: false # Boolean
     PRMT;
     

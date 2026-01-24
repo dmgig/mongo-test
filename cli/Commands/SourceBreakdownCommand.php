@@ -71,16 +71,16 @@ class SourceBreakdownCommand extends Command
             $breakdown->updateMasterSummary($masterSummary);
             $this->breakdownRepo->save($breakdown);
 
-            $partiesResult = $this->analyzeParties($masterSummary, $retry, $output);
+            $partiesResult = $this->analyzeParties($masterSummary, $retry, $output, $input);
             $breakdown->setPartiesYaml($this->stripYamlFences($partiesResult));
 
-            $locationsResult = $this->analyzeLocations($masterSummary, $retry, $output);
+            $locationsResult = $this->analyzeLocations($masterSummary, $retry, $output, $input);
             $breakdown->setLocationsYaml($this->stripYamlFences($locationsResult));
 
-            $timelineResult = $this->analyzeTimeline($masterSummary, $source->accessedAt, $retry, $output);
+            $timelineResult = $this->analyzeTimeline($masterSummary, $source->accessedAt, $retry, $output, $input);
             $breakdown->setTimelineYaml($this->stripYamlFences($timelineResult));
 
-            $datedTimeline = $this->improveTimelineDates($timelineResult, $source->accessedAt, $retry, $output);
+            $datedTimeline = $this->improveTimelineDates($timelineResult, $source->accessedAt, $retry, $output, $input);
             $breakdown->setTimelineYaml($this->stripYamlFences($datedTimeline));
             
             $result = BreakdownResult::fromYaml(
@@ -143,6 +143,7 @@ class SourceBreakdownCommand extends Command
         $runningSummary = "";
         foreach ($chunks as $i => $chunk) {
             $output->write("  - Processing chunk " . ($i + 1) . "... ");
+            $startTime = microtime(true);
             
             $prompt = new Prompt(
                 Prompt::BREAKDOWN_GROWING_SUMMARY_PROMPT,
@@ -157,7 +158,12 @@ class SourceBreakdownCommand extends Command
             $breakdown->addChunkSummary($updatedSummary);
             $runningSummary = $updatedSummary;
             $this->breakdownRepo->save($breakdown);
-            $output->writeln("Done");
+            $duration = microtime(true) - $startTime;
+            $output->writeln(sprintf("Done (%.2fs)", $duration));
+            
+            if ($output->isVerbose()) {
+                $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+            }
         }
         return $runningSummary;
     }
@@ -167,6 +173,7 @@ class SourceBreakdownCommand extends Command
         $output->writeln("Processing " . count($chunks) . " chunks to generate individual summaries (quick strategy)...");
         foreach ($chunks as $i => $chunk) {
             $output->write("  - Processing chunk " . ($i + 1) . "... ");
+            $startTime = microtime(true);
 
             $prompt = new Prompt(
                 Prompt::BREAKDOWN_SUMMARY_PROMPT,
@@ -180,10 +187,16 @@ class SourceBreakdownCommand extends Command
             
             $breakdown->addChunkSummary($chunkSummary);
             $this->breakdownRepo->save($breakdown);
-            $output->writeln("Done");
+            $duration = microtime(true) - $startTime;
+            $output->writeln(sprintf("Done (%.2fs)", $duration));
+            
+            if ($output->isVerbose()) {
+                $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+            }
         }
 
         $output->write("Generating master summary from chunk summaries... ");
+        $startTime = microtime(true);
         $masterSummaryPrompt = new Prompt(
             Prompt::BREAKDOWN_MASTER_SUMMARY_PROMPT,
             implode("\n\n", $breakdown->chunkSummaries),
@@ -192,32 +205,47 @@ class SourceBreakdownCommand extends Command
         );
         $masterSummaryResponse = $this->ai->generate($masterSummaryPrompt);
         $masterSummary = $masterSummaryResponse->text;
-        $output->writeln("Done");
+        $duration = microtime(true) - $startTime;
+        $output->writeln(sprintf("Done (%.2fs)", $duration));
 
+        if ($output->isVerbose()) {
+            $output->writeln("    Tokens: {$masterSummaryResponse->inputTokens} in / {$masterSummaryResponse->outputTokens} out");
+        }
         return $masterSummary;
     }
     
-    private function analyzeParties(string $summary, bool $retry, OutputInterface $output): string
+    private function analyzeParties(string $summary, bool $retry, OutputInterface $output, InputInterface $input): string
     {
         $output->write("Generating parties analysis... ");
+        $startTime = microtime(true);
         $prompt = new Prompt(Prompt::BREAKDOWN_PARTIES_PROMPT, $summary, null, $retry);
         $response = $this->ai->generate($prompt);
-        $output->writeln("Done");
+        $duration = microtime(true) - $startTime;
+        $output->writeln(sprintf("Done (%.2fs)", $duration));
+        if ($output->isVerbose()) {
+            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+        }
         return $response->text;
     }
     
-    private function analyzeLocations(string $summary, bool $retry, OutputInterface $output): string
+    private function analyzeLocations(string $summary, bool $retry, OutputInterface $output, InputInterface $input): string
     {
         $output->write("Generating locations analysis... ");
+        $startTime = microtime(true);
         $prompt = new Prompt(Prompt::BREAKDOWN_LOCATIONS_PROMPT, $summary, null, $retry);
         $response = $this->ai->generate($prompt);
-        $output->writeln("Done");
+        $duration = microtime(true) - $startTime;
+        $output->writeln(sprintf("Done (%.2fs)", $duration));
+        if ($output->isVerbose()) {
+            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+        }
         return $response->text;
     }
 
-    private function analyzeTimeline(string $summary, \DateTimeImmutable $sourceDate, bool $retry, OutputInterface $output): string
+    private function analyzeTimeline(string $summary, \DateTimeImmutable $sourceDate, bool $retry, OutputInterface $output, InputInterface $input): string
     {
         $output->write("Generating timeline analysis... ");
+        $startTime = microtime(true);
         $prompt = new Prompt(
             Prompt::BREAKDOWN_TIMELINE_PROMPT,
             $summary . "\n\n<SOURCE_DATE>" . $sourceDate->format(\DateTimeInterface::ATOM) . "</SOURCE_DATE>",
@@ -225,13 +253,18 @@ class SourceBreakdownCommand extends Command
             $retry
         );
         $response = $this->ai->generate($prompt);
-        $output->writeln("Done");
+        $duration = microtime(true) - $startTime;
+        $output->writeln(sprintf("Done (%.2fs)", $duration));
+        if ($output->isVerbose()) {
+            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+        }
         return $response->text;
     }
 
-    private function improveTimelineDates(string $timelineResult, \DateTimeImmutable $sourceDate, bool $retry, OutputInterface $output): string
+    private function improveTimelineDates(string $timelineResult, \DateTimeImmutable $sourceDate, bool $retry, OutputInterface $output, InputInterface $input): string
     {
         $output->write("Attempting to date undated events... ");
+        $startTime = microtime(true);
         $prompt = new Prompt(
             Prompt::BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT,
             $timelineResult . "\n\n<SOURCE_DATE>" . $sourceDate->format(\DateTimeInterface::ATOM) . "</SOURCE_DATE>",
@@ -239,7 +272,11 @@ class SourceBreakdownCommand extends Command
             $retry
         );
         $response = $this->ai->generate($prompt);
-        $output->writeln("Done");
+        $duration = microtime(true) - $startTime;
+        $output->writeln(sprintf("Done (%.2fs)", $duration));
+        if ($output->isVerbose()) {
+            $output->writeln("    Tokens: {$response->inputTokens} in / {$response->outputTokens} out");
+        }
         return $response->text;
     }
     

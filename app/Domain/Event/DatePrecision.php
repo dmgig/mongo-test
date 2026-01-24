@@ -12,4 +12,5 @@ enum DatePrecision: string
     case HOUR = 'hour';
     case MINUTE = 'minute';
     case SECOND = 'second';
+    case DECADE = 'decade';
 }
