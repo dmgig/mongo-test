@@ -27,10 +27,8 @@ use Symfony\Component\Console\Output\OutputInterface as ConsoleOutputInterface;
 
 class SourceBreakdownCommand extends Command
 {
-    private const STRATEGY_QUICK = 
-'quick';
-    private const STRATEGY_GROWING_SUMMARY = 
-'growing-summary';
+    private const STRATEGY_QUICK = 'quick';
+    private const STRATEGY_GROWING_SUMMARY = 'growing-summary';
 
     public function __construct(
         private readonly SourceService $sourceService,
@@ -78,22 +76,22 @@ class SourceBreakdownCommand extends Command
             $this->breakdownRepo->save($breakdown);
 
             $partiesResult = $this->analyzeParties($masterSummary, $retry, $output, $input);
-            $breakdown->setPartiesYaml($this->stripYamlFences($partiesResult));
+            $breakdown->setPartiesYaml($partiesResult); // Storing JSON string now
 
             $locationsResult = $this->analyzeLocations($masterSummary, $retry, $output, $input);
-            $breakdown->setLocationsYaml($this->stripYamlFences($locationsResult));
+            $breakdown->setLocationsYaml($locationsResult); // Storing JSON string now
 
             $timelineResult = $this->analyzeTimeline($masterSummary, $source->accessedAt, $retry, $output, $input);
-            $breakdown->setTimelineYaml($this->stripYamlFences($timelineResult));
+            // $breakdown->setTimelineYaml($timelineResult); // Skip storing raw intermediate timeline
 
             $datedTimeline = $this->improveTimelineDates($timelineResult, $source->accessedAt, $retry, $output, $input);
-            $breakdown->setTimelineYaml($this->stripYamlFences($datedTimeline));
+            $breakdown->setTimelineYaml($datedTimeline); // Storing JSON string now
             
-            $result = BreakdownResult::fromYaml(
-                $this->stripYamlFences($partiesResult),
-                $this->stripYamlFences($locationsResult),
-                $this->stripYamlFences($datedTimeline)
-            );
+            $result = BreakdownResult::fromArray([
+                'parties' => json_decode($partiesResult, true),
+                'locations' => json_decode($locationsResult, true),
+                'timeline' => json_decode($datedTimeline, true)
+            ]);
             $breakdown->setResult($result);
             $this->breakdownRepo->save($breakdown);
 
@@ -226,7 +224,7 @@ class SourceBreakdownCommand extends Command
         $output->write("Generating parties analysis... ");
         $startTime = microtime(true);
         $prompt = new Prompt(Prompt::BREAKDOWN_PARTIES_PROMPT, $summary, null, $retry);
-        $response = $this->ai->generate($prompt);
+        $response = $this->ai->generate($prompt, Prompt::getPartiesSchema());
         $duration = microtime(true) - $startTime;
         $output->writeln(sprintf("Done (%.2fs)", $duration));
         if ($output->isVerbose()) {
@@ -240,7 +238,7 @@ class SourceBreakdownCommand extends Command
         $output->write("Generating locations analysis... ");
         $startTime = microtime(true);
         $prompt = new Prompt(Prompt::BREAKDOWN_LOCATIONS_PROMPT, $summary, null, $retry);
-        $response = $this->ai->generate($prompt);
+        $response = $this->ai->generate($prompt, Prompt::getLocationsSchema());
         $duration = microtime(true) - $startTime;
         $output->writeln(sprintf("Done (%.2fs)", $duration));
         if ($output->isVerbose()) {
@@ -259,7 +257,7 @@ class SourceBreakdownCommand extends Command
             null,
             $retry
         );
-        $response = $this->ai->generate($prompt);
+        $response = $this->ai->generate($prompt, Prompt::getTimelineSchema());
         $duration = microtime(true) - $startTime;
         $output->writeln(sprintf("Done (%.2fs)", $duration));
         if ($output->isVerbose()) {
@@ -278,7 +276,7 @@ class SourceBreakdownCommand extends Command
             null,
             $retry
         );
-        $response = $this->ai->generate($prompt);
+        $response = $this->ai->generate($prompt, Prompt::getTimelineSchema());
         $duration = microtime(true) - $startTime;
         $output->writeln(sprintf("Done (%.2fs)", $duration));
         if ($output->isVerbose()) {
@@ -297,7 +295,7 @@ class SourceBreakdownCommand extends Command
             $similarEvent = $this->eventRepo->findSimilar($embedding);
             
             if ($similarEvent) {
-                // Merging logic can be implemented here. For now, we\"ll just skip adding duplicates.
+                // Merging logic can be implemented here. For now, we'll just skip adding duplicates.
                 $output->writeln("Skipping duplicate event: " . $event->name);
                 continue;
             }
@@ -328,12 +326,5 @@ class SourceBreakdownCommand extends Command
         $output->writeln("Events: " . count($result->timeline));
         $output->writeln("---------------------");
         $output->writeln("Breakdown complete. You can review the breakdown at any time using the ID: " . $breakdown->id);
-    }
-    
-    private function stripYamlFences(string $text): string
-    {
-        $text = preg_replace("/^```yaml\s*\n?/i", "", $text);
-        $text = preg_replace("/\n?```\s*$/", "", $text);
-        return trim($text);
     }
 }

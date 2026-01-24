@@ -10,7 +10,6 @@ use App\Domain\Event\DatePrecision;
 use App\Domain\Party\Party;
 use App\Domain\Party\PartyType;
 use App\Domain\Party\PartyId;
-use Symfony\Component\Yaml\Yaml;
 
 class BreakdownResult
 {
@@ -24,73 +23,6 @@ class BreakdownResult
         public readonly array $locations,
         public readonly array $timeline
     ) {
-    }
-
-    public static function fromYaml(string $partiesYaml, string $locationsYaml, string $timelineYaml): self
-    {
-        $partiesData = Yaml::parse($partiesYaml);
-        $locationsData = Yaml::parse($locationsYaml);
-        $timelineData = Yaml::parse($timelineYaml);
-
-        $parties = [];
-        if (isset($partiesData["people"])) {
-            foreach ($partiesData["people"] as $p) {
-                // For now, we\"ll just create a Party object. Ideally, we\"d have a more robust way to handle descriptions.
-                $parties[] = Party::create(
-                    $p["name"],
-                    PartyType::INDIVIDUAL,
-                    $p["aliases"] ?? null,
-                    $p["disambiguation_description"] ?? null
-                );
-            }
-        }
-        if (isset($partiesData["organizations"])) {
-            foreach ($partiesData["organizations"] as $o) {
-                $parties[] = Party::create(
-                    $o["official_name"],
-                    PartyType::ORGANIZATION,
-                    $o["alternate_names"] ?? null,
-                    $o["description"] ?? null
-                );
-            }
-        }
-
-        $locations = $locationsData["locations"] ?? [];
-
-        $timeline = [];
-        if (isset($timelineData["events"])) {
-            foreach ($timelineData["events"] as $e) {
-                $startDate = null;
-                if (isset($e["start_date"])) {
-                    $startDate = new FuzzyDate(
-                        new \DateTimeImmutable($e["start_date"]),
-                        DatePrecision::from(strtolower($e["start_precision"] ?? "year")),
-                        $e["is_circa"] ?? false,
-                        $e["human_readable_date"] ?? null
-                    );
-                }
-
-                $endDate = null;
-                if (isset($e["end_date"])) {
-                    $endDate = new FuzzyDate(
-                        new \DateTimeImmutable($e["end_date"]),
-                        DatePrecision::from(strtolower($e["end_precision"] ?? "year")),
-                        $e["is_circa"] ?? false,
-                        null 
-                    );
-                }
-
-                $timeline[] = new Event(
-                    null,
-                    $e["name"],
-                    $e["description"],
-                    $startDate,
-                    $endDate
-                );
-            }
-        }
-
-        return new self($parties, $locations, $timeline);
     }
     
     public function toArray(): array {
@@ -118,50 +50,110 @@ class BreakdownResult
     
     public static function fromArray(array $data): self {
         $parties = [];
-        foreach (($data["parties"] ?? []) as $pData) {
-            // MongoDB stores createdAt as BSON\UTCDateTime, so convert it back to DateTimeImmutable
-            $createdAt = \DateTimeImmutable::createFromMutable($pData["created_at"]->toDateTime());
+        // Handle input from JSON decoding which might not match our internal serialization exactly
+        // We need to support both structured output format (from AI) and our internal format (from DB)
+        
+        $peopleData = $data['parties']['people'] ?? [];
+        $orgsData = $data['parties']['organizations'] ?? [];
+        
+        // If data comes from our internal DB serialization, it might be flat under 'parties'
+        // Let's check the structure.
+        // If $data['parties'] is indexed array, it's likely from DB or flattened list.
+        // If it has 'people' keys, it's from AI JSON.
+        
+        if (isset($data['parties']) && !isset($data['parties']['people']) && !isset($data['parties']['organizations'])) {
+             // Likely DB rehydration
+             foreach ($data['parties'] as $pData) {
+                // MongoDB stores createdAt as BSON\UTCDateTime, so convert it back to DateTimeImmutable
+                $createdAt = isset($pData["created_at"]) && $pData["created_at"] instanceof \MongoDB\BSON\UTCDateTime 
+                    ? \DateTimeImmutable::createFromMutable($pData["created_at"]->toDateTime())
+                    : new \DateTimeImmutable(); // Fallback
 
-            $parties[] = Party::reconstitute(
-                PartyId::fromString($pData["_id"]),
-                $pData["name"],
-                PartyType::from($pData["type"]),
-                $createdAt,
-                $pData["aliases"] ?? null, // New: Pass aliases
-                $pData["disambiguationDescription"] ?? null // New: Pass disambiguationDescription
-            );
+                $parties[] = Party::reconstitute(
+                    PartyId::fromString($pData["_id"]),
+                    $pData["name"],
+                    PartyType::from($pData["type"]),
+                    $createdAt,
+                    $pData["aliases"] ?? null,
+                    $pData["disambiguationDescription"] ?? null
+                );
+             }
+        } else {
+            // Likely AI JSON
+            foreach ($peopleData as $p) {
+                $parties[] = Party::create(
+                    $p['name'],
+                    PartyType::INDIVIDUAL,
+                    $p['aliases'] ?? null,
+                    $p['disambiguation_description'] ?? null
+                );
+            }
+            foreach ($orgsData as $o) {
+                $parties[] = Party::create(
+                    $o['official_name'],
+                    PartyType::ORGANIZATION,
+                    $o['alternate_names'] ?? null,
+                    $o['description'] ?? null
+                );
+            }
         }
 
-        $locations = (array)($data["locations"] ?? []);
+        $locations = [];
+        if (isset($data['locations']['locations'])) {
+             // From AI JSON
+             $locations = $data['locations']['locations'];
+        } elseif (isset($data['locations'])) {
+             // From DB or flat
+             $locations = $data['locations'];
+        }
 
         $timeline = [];
-        foreach (($data["timeline"] ?? []) as $eData) {
+        $eventsData = $data['timeline']['events'] ?? $data['timeline'] ?? [];
+        
+        foreach ($eventsData as $eData) {
             $startDate = null;
-            if (isset($eData["startDate"])) {
-                $sd = $eData["startDate"];
+            // Check for AI JSON format keys
+            if (isset($eData['start_date'])) {
+                 $startDate = new FuzzyDate(
+                    new \DateTimeImmutable($eData['start_date']),
+                    DatePrecision::from(strtolower($eData['start_precision'] ?? 'year')),
+                    $eData['is_circa'] ?? false,
+                    $eData['human_readable_date'] ?? null
+                 );
+            } 
+            // Check for DB rehydration format keys
+            elseif (isset($eData['startDate'])) {
+                $sd = $eData['startDate'];
                 $startDate = new FuzzyDate(
-                    new \DateTimeImmutable($sd["dateTime"]),
-                    DatePrecision::from($sd["precision"]),
-                    $sd["isCirca"] ?? false,
-                    $sd["humanReadable"] ?? null
+                    new \DateTimeImmutable($sd['dateTime']),
+                    DatePrecision::from($sd['precision']),
+                    $sd['isCirca'] ?? false,
+                    $sd['humanReadable'] ?? null
                 );
             }
 
             $endDate = null;
-            if (isset($eData["endDate"])) {
-                $ed = $eData["endDate"];
+            if (isset($eData['end_date'])) {
+                 $endDate = new FuzzyDate(
+                    new \DateTimeImmutable($eData['end_date']),
+                    DatePrecision::from(strtolower($eData['end_precision'] ?? 'year')),
+                    $eData['is_circa'] ?? false,
+                    $eData['human_readable_date'] ?? null
+                 );
+            } elseif (isset($eData['endDate'])) {
+                $ed = $eData['endDate'];
                 $endDate = new FuzzyDate(
-                    new \DateTimeImmutable($ed["dateTime"]),
-                    DatePrecision::from($ed["precision"]),
-                    $ed["isCirca"] ?? false,
-                    $ed["humanReadable"] ?? null
+                    new \DateTimeImmutable($ed['dateTime']),
+                    DatePrecision::from($ed['precision']),
+                    $ed['isCirca'] ?? false,
+                    $ed['humanReadable'] ?? null
                 );
-            };
+            }
 
             $timeline[] = new Event(
                 null,
-                $eData["name"],
-                $eData["description"],
+                $eData['name'],
+                $eData['description'],
                 $startDate,
                 $endDate
             );
