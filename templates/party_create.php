@@ -6,6 +6,7 @@
     <title>Create Party</title>
   </head>
   <body>
+    <a href="/">Back to Home</a>
     <h1>Create Party</h1>
     
     <?php if (isset($message)): ?>

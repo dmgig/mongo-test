@@ -4,6 +4,7 @@
     <title>Sources</title>
 </head>
 <body>
+    <a href="/">Back to Home</a>
     <h1>Sources</h1>
     <ul>
         <?php foreach ($sources as $source): ?>
@@ -28,5 +29,6 @@
             </li>
         <?php endforeach; ?>
     </ul>
+    <a href="/">Back to Home</a>
 </body>
 </html>

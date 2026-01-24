@@ -6,6 +6,7 @@
     <title>Create Relationship</title>
   </head>
   <body>
+    <a href="/">Back to Home</a>
     <h1>Create Relationship</h1>
 
     <?php if (isset($message)): ?>

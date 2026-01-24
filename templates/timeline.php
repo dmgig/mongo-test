@@ -9,12 +9,14 @@
     </style>
 </head>
 <body>
+    <a href="/">Back to Home</a>
     <h1>Master Timeline</h1>
     <table>
         <thead>
             <tr>
                 <th>Date</th>
                 <th>Event</th>
+                <th>Description</th>
             </tr>
         </thead>
         <tbody>
@@ -22,9 +24,11 @@
                 <tr>
                     <td><?= htmlspecialchars($event->startDate ? ($event->startDate->humanReadable ?? $event->startDate->dateTime->format('Y-m-d')) : 'N/A') ?></td>
                     <td><?= htmlspecialchars($event->name) ?></td>
+                    <td><?= htmlspecialchars($event->description) ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
     </table>
+    <a href="/">Back to Home</a>
 </body>
 </html>

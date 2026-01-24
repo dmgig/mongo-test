@@ -12,6 +12,8 @@
     </style>
   </head>
   <body>
+    <a href="/">Back to Home</a> | 
+    <a href="/parties">List Parties</a>
     <h1>Party Details</h1>
     
     <div class="section">

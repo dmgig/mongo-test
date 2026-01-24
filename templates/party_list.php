@@ -11,6 +11,7 @@
     </style>
   </head>
   <body>
+    <a href="/">Back to Home</a>
     <h1>Parties</h1>
     
     <?php if (empty($parties)): ?>

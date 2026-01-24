@@ -8,6 +8,7 @@
     </style>
 </head>
 <body>
+    <a href="/sources">Back to Sources</a>
     <h1>Breakdown Detail</h1>
     <p><strong>ID:</strong> <?= $breakdown->id ?></p>
     <p><strong>Source ID:</strong> <?= $breakdown->sourceId ?></p>
