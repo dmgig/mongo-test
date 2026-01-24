@@ -13,7 +13,8 @@ class Event
         public readonly string $name,
         public readonly string $description,
         public readonly ?FuzzyDate $startDate,
-        public readonly ?FuzzyDate $endDate
+        public readonly ?FuzzyDate $endDate,
+        public ?array $embedding = null
     ) {
         $this->id = $id ?? EventId::generate();
     }

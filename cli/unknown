@@ -17,6 +17,7 @@ use App\Infrastructure\Mongo\MongoBreakdownRepository;
 use App\Infrastructure\Mongo\MongoEventRepository;
 use App\Infrastructure\Html\HtmlStructureService;
 use App\Infrastructure\Ai\Gemini\GeminiAdapter;
+use App\Domain\Event\EmbeddingService;
 use Symfony\Component\Console\Application;
 use Dotenv\Dotenv;
 
@@ -47,6 +48,7 @@ $htmlStructureService = new HtmlStructureService();
 $aiExtractor = new AiContentExtractor($htmlStructureService, $aiAdapter);
 $readabilityExtractor = new ReadabilityContentExtractor();
 $chunkingService = new ChunkingService();
+$embeddingService = new EmbeddingService($aiAdapter);
 
 $extractors = [
     'ai' => $aiExtractor,
@@ -57,6 +59,6 @@ $extractors = [
 $application->add(new CreateSourceCommand($sourceService));
 $application->add(new ExtractContentCommand($sourceService, $extractors));
 $application->add(new ListAiModelsCommand($geminiClient));
-$application->add(new SourceBreakdownCommand($sourceService, $readabilityExtractor, $aiAdapter, $breakdownRepo, $eventRepo, $chunkingService));
+$application->add(new SourceBreakdownCommand($sourceService, $readabilityExtractor, $aiAdapter, $breakdownRepo, $eventRepo, $chunkingService, $embeddingService));
 
 $application->run();

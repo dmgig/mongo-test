@@ -15,6 +15,7 @@ use App\Domain\Content\ContentExtractorInterface;
 use App\Domain\Source\SourceId;
 use App\Domain\Source\SourceService;
 use App\Domain\Event\EventRepositoryInterface;
+use App\Domain\Event\EmbeddingService;
 use League\HTMLToMarkdown\HtmlConverter;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -35,6 +36,7 @@ class SourceBreakdownCommand extends Command
         private readonly BreakdownRepositoryInterface $breakdownRepo,
         private readonly EventRepositoryInterface $eventRepo,
         private readonly ChunkingService $chunkingService,
+        private readonly EmbeddingService $embeddingService
     ) {
         parent::__construct();
     }
@@ -283,6 +285,18 @@ class SourceBreakdownCommand extends Command
     private function saveEvents(BreakdownResult $result, OutputInterface $output): void
     {
         foreach ($result->timeline as $event) {
+            $textForEmbedding = $event->name . " " . $event->description;
+            $embedding = $this->embeddingService->generateEmbedding($textForEmbedding);
+            $event->embedding = $embedding;
+            
+            $similarEvent = $this->eventRepo->findSimilar($embedding);
+            
+            if ($similarEvent) {
+                // Merging logic can be implemented here. For now, we'll just skip adding duplicates.
+                $output->writeln("Skipping duplicate event: " . $event->name);
+                continue;
+            }
+            
             $this->eventRepo->save($event);
         }
         $output->writeln("Saved " . count($result->timeline) . " events to the master timeline.");

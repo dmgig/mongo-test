@@ -48,14 +48,7 @@ class GeminiAdapter implements AiModelInterface
             } catch (\Exception $e) {
                 $attempt++;
                 
-                // Check for rate limit errors (often code 429) or other retryable errors.
-                // Google Gemini PHP client might wrap exceptions differently, but typically 429 is rate limit.
-                // For robustness, we might retry on any exception if retry is enabled, or be more specific.
-                // Let's assume we retry on any exception if requested, as temporary network blips can happen too.
-                
                 if ($prompt->retry && $attempt <= self::MAX_RETRIES) {
-                    // Log or output warning? We are in an adapter, maybe just sleep.
-                    // Ideally we'd use a PSR logger here. For now, just sleep.
                     sleep($backoff);
                     $backoff *= 2; // Exponential backoff
                     continue;
@@ -64,6 +57,19 @@ class GeminiAdapter implements AiModelInterface
                 // If not retrying or max retries reached, wrap and throw.
                 throw new AiException("AI Generation failed: " . $e->getMessage(), 0, $e);
             }
+        }
+    }
+
+    public function embedContent(string $text, string $model = 'text-embedding-004'): array
+    {
+        try {
+            $response = $this->client
+                ->embeddingModel($model)
+                ->embedContent($text);
+
+            return $response->embedding->values;
+        } catch (\Exception $e) {
+            throw new AiException("Embedding failed: " . $e->getMessage(), 0, $e);
         }
     }
 }
