@@ -48,7 +48,7 @@ class SourceBreakdownCommand extends Command
         $this
             ->setName("source:breakdown")
             ->setDescription("Breaks down a source into parties and events using AI.")
-            ->addArgument("id", InputArgument::REQUIRED, "The Source ID")
+            ->addArgument("id", InputArgument::IS_ARRAY | InputArgument::REQUIRED, "The Source ID")
             ->addOption("retry", null, InputOption::VALUE_NONE, "Enable automatic retries on AI errors")
             ->addOption("chunk-limit", null, InputOption::VALUE_REQUIRED, "Limit the number of chunks processed", null)
             ->addOption("strategy", null, InputOption::VALUE_REQUIRED, "The breakdown strategy to use (quick or growing-summary)", self::STRATEGY_QUICK);
@@ -56,54 +56,61 @@ class SourceBreakdownCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $id = $input->getArgument("id");
+        $ids = $input->getArgument("id");
         $retry = (bool)$input->getOption("retry");
         $chunkLimit = $input->getOption("chunk-limit");
         $strategy = $input->getOption("strategy");
 
-        $sourceId = SourceId::fromString($id);
-
-        try {
-            $source = $this->sourceService->getSource($sourceId);
-            $output->writeln("Fetched source: " . $source->url);
-
-            $markdownContent = $this->getMarkdownContent($source);
-            $breakdown = $this->createBreakdownRecord($sourceId, $output);
-            $chunks = $this->getChunks($markdownContent, $chunkLimit, $output);
-
-            $masterSummary = $this->generateMasterSummary($chunks, $strategy, $breakdown, $input, $output);
-            $breakdown->updateMasterSummary($masterSummary);
-            $this->breakdownRepo->save($breakdown);
-
-            $partiesResult = $this->analyzeParties($masterSummary, $retry, $output, $input);
-            $breakdown->setPartiesYaml($partiesResult); // Storing JSON string now
-
-            $locationsResult = $this->analyzeLocations($masterSummary, $retry, $output, $input);
-            $breakdown->setLocationsYaml($locationsResult); // Storing JSON string now
-
-            $timelineResult = $this->analyzeTimeline($masterSummary, $source->accessedAt, $retry, $output, $input);
-            // $breakdown->setTimelineYaml($timelineResult); // Skip storing raw intermediate timeline
-
-            $datedTimeline = $this->improveTimelineDates($timelineResult, $source->accessedAt, $retry, $output, $input);
-            $breakdown->setTimelineYaml($datedTimeline); // Storing JSON string now
-            
-            $result = BreakdownResult::fromArray([
-                'parties' => json_decode($partiesResult, true),
-                'locations' => json_decode($locationsResult, true),
-                'timeline' => json_decode($datedTimeline, true)
-            ]);
-            $breakdown->setResult($result);
-            $this->breakdownRepo->save($breakdown);
-
-            $this->saveEvents($result, $output);
-            $this->saveParties($result, $output);
-            $this->outputFinalResult($result, $breakdown, $output);
-
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $output->writeln("<error>Error: " . $e->getMessage() . "</error>");
-            return Command::FAILURE;
+        foreach ($ids as $id) {
+            $output->writeln("\nProcessing Source ID: " . $id);
+            try {
+                $sourceId = SourceId::fromString($id);
+                $this->processSource($sourceId, $retry, $chunkLimit, $strategy, $output, $input);
+            } catch (\Exception $e) {
+                $output->writeln("<error>Error processing source $id: " . $e->getMessage() . "</error>");
+                // Continue to next source
+            }
         }
+
+        return Command::SUCCESS;
+    }
+
+    private function processSource(SourceId $sourceId, bool $retry, ?string $chunkLimit, ?string $strategy, OutputInterface $output, InputInterface $input): void
+    {
+        $source = $this->sourceService->getSource($sourceId);
+        $output->writeln("Fetched source: " . $source->url);
+
+        $markdownContent = $this->getMarkdownContent($source);
+        $breakdown = $this->createBreakdownRecord($sourceId, $output);
+        $chunks = $this->getChunks($markdownContent, $chunkLimit, $output);
+
+        $masterSummary = $this->generateMasterSummary($chunks, $strategy, $breakdown, $input, $output);
+        $breakdown->updateMasterSummary($masterSummary);
+        $this->breakdownRepo->save($breakdown);
+
+        $partiesResult = $this->analyzeParties($masterSummary, $retry, $output, $input);
+        $breakdown->setPartiesYaml($partiesResult);
+
+        $locationsResult = $this->analyzeLocations($masterSummary, $retry, $output, $input);
+        $breakdown->setLocationsYaml($locationsResult);
+
+        $timelineResult = $this->analyzeTimeline($masterSummary, $source->accessedAt, $retry, $output, $input);
+        // $breakdown->setTimelineYaml($timelineResult); 
+
+        $datedTimeline = $this->improveTimelineDates($timelineResult, $source->accessedAt, $retry, $output, $input);
+        $breakdown->setTimelineYaml($datedTimeline);
+        
+        $result = BreakdownResult::fromArray([
+            'parties' => json_decode($partiesResult, true),
+            'locations' => json_decode($locationsResult, true),
+            'timeline' => json_decode($datedTimeline, true)
+        ]);
+        $breakdown->setResult($result);
+        $this->breakdownRepo->save($breakdown);
+
+        $this->saveEvents($result, $output);
+        $this->saveParties($result, $output);
+        $this->outputFinalResult($result, $breakdown, $output);
     }
 
     private function getMarkdownContent(\App\Domain\Source\Source $source): string
@@ -326,5 +333,13 @@ class SourceBreakdownCommand extends Command
         $output->writeln("Events: " . count($result->timeline));
         $output->writeln("---------------------");
         $output->writeln("Breakdown complete. You can review the breakdown at any time using the ID: " . $breakdown->id);
+    }
+    
+    private function stripYamlFences(string $text): string
+    {
+        // Keeping this helper method as it was in the original file, though not strictly needed for JSON
+        $text = preg_replace("/^```yaml\s*\n?/i", "", $text);
+        $text = preg_replace("/\n?```\s*$/", "", $text);
+        return trim($text);
     }
 }
