@@ -69,8 +69,11 @@ class BreakdownResult
                     ? \DateTimeImmutable::createFromMutable($pData["created_at"]->toDateTime())
                     : new \DateTimeImmutable(); // Fallback
 
+                // Check for _id, if missing (e.g. old record), generate a new one
+                $id = isset($pData["_id"]) ? PartyId::fromString($pData["_id"]) : PartyId::generate();
+
                 $parties[] = Party::reconstitute(
-                    PartyId::fromString($pData["_id"]),
+                    $id,
                     $pData["name"],
                     PartyType::from($pData["type"]),
                     $createdAt,
