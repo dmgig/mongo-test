@@ -74,7 +74,7 @@ class BreakdownResult
                     $pData["name"],
                     PartyType::from($pData["type"]),
                     $createdAt,
-                    $pData["aliases"] ?? null,
+                    isset($pData["aliases"]) ? (array)$pData["aliases"] : null,
                     $pData["disambiguationDescription"] ?? null
                 );
              }
@@ -101,10 +101,10 @@ class BreakdownResult
         $locations = [];
         if (isset($data['locations']['locations'])) {
              // From AI JSON
-             $locations = $data['locations']['locations'];
+             $locations = (array)$data['locations']['locations'];
         } elseif (isset($data['locations'])) {
              // From DB or flat
-             $locations = $data['locations'];
+             $locations = (array)$data['locations'];
         }
 
         $timeline = [];
