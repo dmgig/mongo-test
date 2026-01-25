@@ -23,7 +23,10 @@ class SourceService
         try {
             $response = $client->request('GET', $url, [
                 'timeout' => 10,
-                'http_errors' => false // Don't throw exception on 4xx/5xx, we want to capture it
+                'http_errors' => false, // Don't throw exception on 4xx/5xx, we want to capture it
+                'headers' => [
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                ]
             ]);
             
             $content = (string)$response->getBody();
