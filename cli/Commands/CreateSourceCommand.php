@@ -25,29 +25,33 @@ class CreateSourceCommand extends Command
     {
         $this
             ->setName('sources:create')
-            ->setDescription('Creates a new source by fetching content from a URL.')
-            ->setHelp('This command allows you to create a source...')
-            ->addArgument('url', InputArgument::REQUIRED, 'The URL of the source');
+            ->setDescription('Creates new sources by fetching content from URLs.')
+            ->setHelp('This command allows you to create one or more sources...')
+            ->addArgument('url', InputArgument::IS_ARRAY | InputArgument::REQUIRED, 'The URL(s) of the source(s)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $url = $input->getArgument('url');
+        $urls = $input->getArgument('url');
 
-        $output->writeln("Fetching source from: " . $url);
+        foreach ($urls as $url) {
+            $output->writeln("Fetching source from: " . $url);
 
-        try {
-            $source = $this->sourceService->createSource($url);
-            
-            $output->writeln('<info>Source created successfully!</info>');
-            $output->writeln("ID: " . $source->id->value);
-            $output->writeln("HTTP Code: " . $source->httpCode);
-            $output->writeln("Content Length: " . strlen($source->content) . " bytes");
-            
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $output->writeln('<error>Error creating source: ' . $e->getMessage() . '</error>');
-            return Command::FAILURE;
+            try {
+                $source = $this->sourceService->createSource($url);
+                
+                $output->writeln('<info>Source created successfully!</info>');
+                $output->writeln("ID: " . $source->id->value);
+                $output->writeln("HTTP Code: " . $source->httpCode);
+                $output->writeln("Content Length: " . strlen($source->content) . " bytes");
+                $output->writeln("-----------------------------------");
+                
+            } catch (\Exception $e) {
+                $output->writeln('<error>Error creating source for URL ' . $url . ': ' . $e->getMessage() . '</error>');
+                // Continue to the next URL
+            }
         }
+
+        return Command::SUCCESS;
     }
 }

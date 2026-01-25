@@ -69,13 +69,13 @@ The application exposes a JSON REST API at `/api/v1`. See [API Documentation](RE
 
 A Command Line Interface tool is available for managing the application.
 
-- **Create Source**: Fetch and store a web page as a source.
+- **Create Source**: Fetch and store one or more web pages as sources.
   ```bash
-  cli/unknown sources:create https://example.com
+  cli/unknown sources:create <url1> [url2] [url3] ...
   ```
-- **Source Breakdown**: Generates AI breakdown for a source, storing raw YAML results, and saving identified parties and events to their respective master lists with deduplication.
+- **Source Breakdown**: Generates AI breakdown for one or more sources, storing raw YAML results, and saving identified parties and events to their respective master lists with deduplication.
   ```bash
-  cli/unknown source:breakdown <source-id> [--chunk-limit <limit>] [--retry] [--strategy <quick|growing-summary>]
+  cli/unknown source:breakdown <source-id1> [source-id2] ... [--chunk-limit <limit>] [--retry] [--strategy <quick|growing-summary>]
   ```
 
 ## Architecture
