@@ -4,11 +4,14 @@ declare(strict_types=1);
 
 namespace App\Domain\Party;
 
+use App\Domain\Source\SourceRelationshipRepositoryInterface;
+
 class PartyService
 {
     public function __construct(
         private readonly PartyRepositoryInterface $partyRepository,
-        private readonly PartyRelationshipRepositoryInterface $relationshipRepository
+        private readonly PartyRelationshipRepositoryInterface $relationshipRepository,
+        private readonly SourceRelationshipRepositoryInterface $sourceRelationshipRepository
     ) {
     }
 
@@ -27,7 +30,10 @@ class PartyService
         // This enforces the rule: "When we delete a party, we should delete its relationships."
         $this->relationshipRepository->deleteByPartyId($partyId);
 
-        // 2. Delete the party itself
+        // 2. Delete all source relationships associated with this party
+        $this->sourceRelationshipRepository->deleteByTargetEntityId($partyId->value);
+
+        // 3. Delete the party itself
         $this->partyRepository->delete($partyId);
     }
 

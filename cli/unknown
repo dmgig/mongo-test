@@ -13,6 +13,7 @@ use App\Domain\Content\ReadabilityContentExtractor;
 use App\Domain\Content\ChunkingService;
 use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoSourceRepository;
+use App\Infrastructure\Mongo\MongoSourceRelationshipRepository;
 use App\Infrastructure\Mongo\MongoBreakdownRepository;
 use App\Infrastructure\Mongo\MongoEventRepository;
 use App\Infrastructure\Mongo\MongoPartyRepository;
@@ -33,7 +34,8 @@ $application = new Application();
 // Manual Dependency Injection
 $connector = MongoConnector::fromEnvironment();
 $sourceRepo = new MongoSourceRepository($connector);
-$sourceService = new SourceService($sourceRepo);
+$sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+$sourceService = new SourceService($sourceRepo, $sourceRelRepo);
 $breakdownRepo = new MongoBreakdownRepository($connector);
 $eventRepo = new MongoEventRepository($connector);
 $partyRepo = new MongoPartyRepository($connector);
@@ -54,7 +56,11 @@ $aiExtractor = new AiContentExtractor($htmlStructureService, $aiAdapter);
 $readabilityExtractor = new ReadabilityContentExtractor();
 $chunkingService = new ChunkingService();
 $embeddingService = new EmbeddingService($aiAdapter);
-$partyService = new PartyService($partyRepo, $partyRelationshipRepo);
+
+// partyService instantiated above
+// $partyService = new PartyService($partyRepo, $partyRelationshipRepo); 
+// Moved above to use $sourceRelRepo
+$partyService = new PartyService($partyRepo, $partyRelationshipRepo, $sourceRelRepo);
 
 $extractors = [
     "ai" => $aiExtractor,

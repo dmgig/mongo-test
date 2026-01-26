@@ -98,7 +98,8 @@ Located in `app/Domain/`, this layer contains the business logic, independent of
 
 - **Source Domain**:
     - `Source`: Entity representing external content (e.g., a web page) fetched and stored for analysis.
-    - `SourceService`: Handles fetching content via HTTP (Guzzle) and persistence.
+    - `SourceRelationship`: Polymorphic entity linking a Source to any other domain entity (e.g., Event, Party).
+    - `SourceService`: Handles fetching content via HTTP (Guzzle), persistence, and relationship management.
 
 - **AI Domain**:
     - `AiModelInterface`: Abstraction for AI interactions.

@@ -49,6 +49,11 @@ class MongoEventRepository implements EventRepositoryInterface
         return $events;
     }
 
+    public function delete(EventId $id): void
+    {
+        $this->collection->deleteOne(['_id' => $id->value]);
+    }
+
     public function findSimilar(array $embedding, float $threshold = 0.8): ?Event
     {
         // This is a naive implementation. A real vector search would be done in the database.

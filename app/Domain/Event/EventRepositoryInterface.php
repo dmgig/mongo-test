@@ -12,4 +12,6 @@ interface EventRepositoryInterface
      * @return Event[]
      */
     public function findAll(): array;
+
+    public function delete(EventId $id): void;
 }

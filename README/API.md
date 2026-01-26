@@ -65,3 +65,4 @@ Deletes a source.
     "status": "deleted"
   }
   ```
+> **Note**: Deleting a source automatically removes any associated SourceRelationships.

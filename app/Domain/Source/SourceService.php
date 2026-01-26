@@ -10,7 +10,8 @@ use GuzzleHttp\Exception\GuzzleException;
 class SourceService
 {
     public function __construct(
-        private readonly SourceRepositoryInterface $sourceRepository
+        private readonly SourceRepositoryInterface $sourceRepository,
+        private readonly SourceRelationshipRepositoryInterface $relationshipRepository
     ) {
     }
 
@@ -56,6 +57,37 @@ class SourceService
 
     public function deleteSource(SourceId $id): void
     {
+        // 1. Delete all relationships for this source
+        $this->relationshipRepository->deleteBySourceId($id);
+
+        // 2. Delete the source itself
         $this->sourceRepository->delete($id);
+    }
+
+    public function linkToEntity(SourceId $sourceId, string $targetEntityId, string $targetEntityType, string $relationshipType): SourceRelationship
+    {
+        // Verify source exists
+        $source = $this->sourceRepository->findById($sourceId);
+        if (!$source) {
+            throw new \Exception("Source with ID {$sourceId->value} not found.");
+        }
+
+        $relationship = SourceRelationship::create(
+            $sourceId,
+            $targetEntityId,
+            $targetEntityType,
+            $relationshipType
+        );
+
+        $this->relationshipRepository->save($relationship);
+        return $relationship;
+    }
+
+    /**
+     * @return SourceRelationship[]
+     */
+    public function getRelationships(SourceId $sourceId): array
+    {
+        return $this->relationshipRepository->findBySourceId($sourceId);
     }
 }

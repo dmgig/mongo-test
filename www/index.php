@@ -17,6 +17,7 @@ use App\Infrastructure\Mongo\MongoConnector;
 use App\Infrastructure\Mongo\MongoPartyRepository;
 use App\Infrastructure\Mongo\MongoPartyRelationshipRepository;
 use App\Infrastructure\Mongo\MongoSourceRepository;
+use App\Infrastructure\Mongo\MongoSourceRelationshipRepository;
 use App\Infrastructure\Mongo\MongoBreakdownRepository;
 use App\Infrastructure\Mongo\MongoEventRepository;
 use App\Domain\Breakdown\BreakdownService;
@@ -52,7 +53,8 @@ $app->get('/timeline', function (Request $request, Response $response) {
     try {
         $connector = MongoConnector::fromEnvironment();
         $eventRepo = new MongoEventRepository($connector);
-        $eventService = new EventService($eventRepo);
+        $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+        $eventService = new EventService($eventRepo, $sourceRelRepo);
         
         $events = $eventService->getAllEvents();
         
@@ -132,7 +134,8 @@ $app->get('/party/detail/{id}', function (Request $request, Response $response, 
         $connector = MongoConnector::fromEnvironment();
         $partyRepo = new MongoPartyRepository($connector);
         $relRepo = new MongoPartyRelationshipRepository($connector);
-        $service = new PartyService($partyRepo, $relRepo);
+        $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+        $service = new PartyService($partyRepo, $relRepo, $sourceRelRepo);
 
         $result = $service->getPartyWithRelationships(PartyId::fromString($idStr));
         
@@ -305,7 +308,8 @@ $app->post('/party/delete/{id}', function (Request $request, Response $response,
             // Wiring up the dependencies manually
             $partyRepo = new MongoPartyRepository($connector);
             $relRepo = new MongoPartyRelationshipRepository($connector);
-            $service = new PartyService($partyRepo, $relRepo);
+            $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+            $service = new PartyService($partyRepo, $relRepo, $sourceRelRepo);
 
             $service->deleteParty(PartyId::fromString($idStr));
             $message = "Party and its relationships deleted successfully.";
@@ -357,7 +361,8 @@ $app->group('/api/v1', function ($group) {
         try {
             $connector = MongoConnector::fromEnvironment();
             $sourceRepo = new MongoSourceRepository($connector);
-            $service = new SourceService($sourceRepo);
+            $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+            $service = new SourceService($sourceRepo, $sourceRelRepo);
 
             $source = $service->createSource($url);
 
@@ -380,7 +385,8 @@ $app->group('/api/v1', function ($group) {
         try {
             $connector = MongoConnector::fromEnvironment();
             $sourceRepo = new MongoSourceRepository($connector);
-            $service = new SourceService($sourceRepo);
+            $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+            $service = new SourceService($sourceRepo, $sourceRelRepo);
 
             $source = $service->getSource(SourceId::fromString($idStr));
             
@@ -399,7 +405,8 @@ $app->group('/api/v1', function ($group) {
         try {
             $connector = MongoConnector::fromEnvironment();
             $sourceRepo = new MongoSourceRepository($connector);
-            $service = new SourceService($sourceRepo);
+            $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+            $service = new SourceService($sourceRepo, $sourceRelRepo);
 
             $service->deleteSource(SourceId::fromString($idStr));
 
@@ -465,7 +472,8 @@ $app->group('/api/v1', function ($group) {
             $connector = MongoConnector::fromEnvironment();
             $partyRepo = new MongoPartyRepository($connector);
             $relRepo = new MongoPartyRelationshipRepository($connector);
-            $service = new PartyService($partyRepo, $relRepo);
+            $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+            $service = new PartyService($partyRepo, $relRepo, $sourceRelRepo);
 
             $result = $service->getPartyWithRelationships(PartyId::fromString($idStr));
             
@@ -522,7 +530,8 @@ $app->group('/api/v1', function ($group) {
             $connector = MongoConnector::fromEnvironment();
             $partyRepo = new MongoPartyRepository($connector);
             $relRepo = new MongoPartyRelationshipRepository($connector);
-            $service = new PartyService($partyRepo, $relRepo);
+            $sourceRelRepo = new MongoSourceRelationshipRepository($connector);
+            $service = new PartyService($partyRepo, $relRepo, $sourceRelRepo);
 
             $service->deleteParty(PartyId::fromString($idStr));
 
