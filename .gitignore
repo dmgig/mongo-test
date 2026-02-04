@@ -4,6 +4,9 @@
 # Environment
 .env
 
+# MongoDB
+.ddev/mongo_data/data/*
+
 # OS Files
 .DS_Store
 Thumbs.db

@@ -4,16 +4,12 @@ services:
     container_name: ddev-${DDEV_SITENAME}-mongo
     image: ${MONGO_DOCKER_IMAGE:-mongo:5-focal}
     volumes:
-      - type: "volume"
-        source: mongo
+      - type: "bind"
+        source: "./mongo_data/data"
         target: "/data/db"
-        volume:
-          nocopy: true
-      - type: "volume"
-        source: mongo-config
+      - type: "bind"
+        source: "./mongo_data/config"
         target: "/data/configdb"
-        volume:
-          nocopy: true
       - ".:/mnt/ddev_config"
       - "ddev-global-cache:/mnt/ddev-global-cache"
     restart: "no"
@@ -52,7 +48,3 @@ services:
         condition: service_healthy
     profiles:
       - mongo-express
-
-volumes:
-  mongo:
-  mongo-config:
