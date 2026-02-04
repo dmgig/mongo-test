@@ -20,11 +20,19 @@ class ReadabilityContentExtractor implements ContentExtractorInterface
 
         $readability = new Readability($config);
 
+        // If the content does not appear to be HTML, return it directly.
+        if (!preg_match('/<html|body/i', $source->content)) {
+            return $source->content;
+        }
+
         try {
             $readability->parse($source->content);
             return $readability->getContent();
         } catch (ParseException $e) {
-            return "Error: Readability could not extract content: " . $e->getMessage();
+            if ($output) {
+                $output->writeln("Readability parse error: " . $e->getMessage());
+            }
+            return $source->content;
         }
     }
 }

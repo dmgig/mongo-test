@@ -100,6 +100,7 @@ Located in `app/Domain/`, this layer contains the business logic, independent of
     - `Source`: Entity representing external content (e.g., a web page) fetched and stored for analysis.
     - `SourceRelationship`: Polymorphic entity linking a Source to any other domain entity (e.g., Event, Party).
     - `SourceService`: Handles fetching content via HTTP (Guzzle), persistence, and relationship management.
+    - `ReadabilityContentExtractor`: Extracts the main content from a source's URL. It can handle both HTML and plain text content.
 
 - **Event Domain**:
     - `Event`: Represents an occurrence in time with a start and optional end date.
