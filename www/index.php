@@ -93,6 +93,33 @@ $app->get('/sources', function (Request $request, Response $response) {
     }
 });
 
+// GET /source/detail/{id} - Show Source Details
+$app->get('/source/detail/{id}', function (Request $request, Response $response, array $args) {
+    $idStr = $args['id'] ?? '';
+    
+    if (!$idStr) {
+        $response->getBody()->write("Source ID is required.");
+        return $response->withStatus(400);
+    }
+
+    try {
+        $connector = MongoConnector::fromEnvironment();
+        $sourceRepo = new MongoSourceRepository($connector);
+        
+        $source = $sourceRepo->findById(SourceId::fromString($idStr));
+
+        ob_start();
+        require __DIR__ . '/../templates/source_detail.php';
+        $html = ob_get_clean();
+        $response->getBody()->write($html);
+        return $response;
+
+    } catch (\Exception $e) {
+        $response->getBody()->write("Error: " . htmlspecialchars($e->getMessage()));
+        return $response->withStatus(404);
+    }
+});
+
 // GET /breakdown/{id} - Show Breakdown Details
 $app->get('/breakdown/{id}', function (Request $request, Response $response, array $args) {
     $idStr = $args['id'] ?? '';
