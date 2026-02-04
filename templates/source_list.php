@@ -9,7 +9,7 @@
     <ul>
         <?php foreach ($sources as $source): ?>
             <li>
-                <strong>ID:</strong> <?= $source->id ?><br>
+                <strong>ID:</strong> <a href="/source/detail/<?= $source->id ?>"><?= $source->id ?></a><br>
                 <a href="<?= htmlspecialchars($source->url) ?>" target="_blank"><?= htmlspecialchars($source->url) ?></a>
                 (Retrieved: <?= $source->accessedAt->setTimezone(new DateTimeZone('America/New_York'))->format('Y-m-d h:i:s A') ?>)
                 <ul>
