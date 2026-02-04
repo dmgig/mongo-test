@@ -61,6 +61,12 @@ class Prompt
         You are an intelligence analyst. Based on the provided document summary and its source date (<SOURCE_DATE>),
         generate a chronological timeline of events.
         When possible, use the <SOURCE_DATE> as an anchor to infer precise dates for events, avoiding relative terms.
+
+        Date Rules:
+        1. If there is only one datetime, it must be the start_date.
+        2. The start_date must always precede the end_date.
+        3. If the start_date and end_date match, only a start_date is needed. Leave end_date empty.
+        4. If "present" or "now" is implied for the end_date, use the <SOURCE_DATE> as the end_date.
     PRMT;
     
     public const BREAKDOWN_IMPROVE_TIMELINE_DATES_PROMPT = <<<PRMT
@@ -70,6 +76,13 @@ class Prompt
         Avoid relative dates in `human_readable_date` if a precise date can be determined.
         If an `end_date` is missing but can be inferred, add it.
         If `is_circa` is true but a precise date can be found, set `is_circa` to false.
+        
+        Date Rules:
+        1. If there is only one datetime, it must be the start_date.
+        2. The start_date must always precede the end_date.
+        3. If the start_date and end_date match, only a start_date is needed. Leave end_date empty.
+        4. If "present" or "now" is implied for the end_date, use the <SOURCE_DATE> as the end_date.
+
         Do not guess dates; if a more specific date cannot be confidently determined,
         leave the existing values as they are. Return the updated timeline using the same structure.
     PRMT;

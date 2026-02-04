@@ -101,6 +101,15 @@ Located in `app/Domain/`, this layer contains the business logic, independent of
     - `SourceRelationship`: Polymorphic entity linking a Source to any other domain entity (e.g., Event, Party).
     - `SourceService`: Handles fetching content via HTTP (Guzzle), persistence, and relationship management.
 
+- **Event Domain**:
+    - `Event`: Represents an occurrence in time with a start and optional end date.
+    - `FuzzyDate`: Handles dates with varying precision (Year, Month, Day, etc.) and "Circa" status.
+    - **Date Rules**:
+        - Events with a single date must use `startDate`.
+        - `startDate` must always precede `endDate`.
+        - If dates match, only `startDate` is used.
+        - "Present" end dates are relative to the Source publication date.
+
 - **AI Domain**:
     - `AiModelInterface`: Abstraction for AI interactions.
     - `GeminiAdapter`: Implementation for Google Gemini.

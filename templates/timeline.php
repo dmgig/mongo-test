@@ -15,6 +15,7 @@
         <thead>
             <tr>
                 <th>Date</th>
+                <th>Debug</th>
                 <th>Event</th>
                 <th>Description</th>
             </tr>
@@ -23,6 +24,28 @@
             <?php foreach ($events as $event): ?>
                 <tr>
                     <td><?= htmlspecialchars($event->startDate ? ($event->startDate->humanReadable ?? $event->startDate->dateTime->format('Y-m-d')) : 'N/A') ?></td>
+                    <td>
+                        <pre style="font-size: 0.8em;"><?php
+                            $debugData = [];
+                            if ($event->startDate) {
+                                $debugData['start'] = [
+                                    'dateTime' => $event->startDate->dateTime->format('Y-m-d H:i:s'),
+                                    'precision' => $event->startDate->precision->value,
+                                    'isCirca' => $event->startDate->isCirca,
+                                    'humanReadable' => $event->startDate->humanReadable,
+                                ];
+                            }
+                            if ($event->endDate) {
+                                $debugData['end'] = [
+                                    'dateTime' => $event->endDate->dateTime->format('Y-m-d H:i:s'),
+                                    'precision' => $event->endDate->precision->value,
+                                    'isCirca' => $event->endDate->isCirca,
+                                    'humanReadable' => $event->endDate->humanReadable,
+                                ];
+                            }
+                            echo json_encode($debugData, JSON_PRETTY_PRINT);
+                        ?></pre>
+                    </td>
                     <td><?= htmlspecialchars($event->name) ?></td>
                     <td><?= htmlspecialchars($event->description) ?></td>
                 </tr>
